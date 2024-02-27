@@ -9,7 +9,7 @@ import re
 from langchain.docstore.document import Document
 from langchain.text_splitter import RecursiveCharacterTextSplitter, Language
 from langchain.embeddings.openai import OpenAIEmbeddings
-from langchain.vectorstores import FAISS
+from langchain_community.vectorstores import FAISS
 
 ### Splitters for different data sources ###
 text_splitter = RecursiveCharacterTextSplitter(chunk_size = 100000, chunk_overlap = 200)
