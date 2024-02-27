@@ -9,7 +9,7 @@ import openai
 
 st.sidebar.image("img/semmelweis_logo_transparent.png", use_column_width=True)
 with st.sidebar:
-    openai_api = st.text_input('OpenAI API Key', type = 'password', key = 'openai_key')
+    openai_api = st.text_input('OpenAI API kulcs', type = 'password', key = 'openai_key')
     openai.api_key = openai_api
     os.environ["OPENAI_API_KEY"] = openai_api
 
@@ -149,7 +149,7 @@ with prompt_expander:
 DOCUMENTS_TO_CHOOSE_FROM = []
 docs = []
 
-uploaded_files = st.file_uploader("Töltsön fel a fájlokat! Elfogadott formátumok: PDF, HTML, TXT, DOCX", 
+uploaded_files = st.file_uploader("Töltse fel a fájlokat! Elfogadott formátumok: PDF, HTML, TXT, DOCX", 
                      type = ['pdf', 'html', 'txt', 'docx'], accept_multiple_files=True)
     
 if uploaded_files:
