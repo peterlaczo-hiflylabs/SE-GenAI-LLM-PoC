@@ -7,7 +7,7 @@ from copy import deepcopy
 import os
 import openai
 
-st.sidebar.image("https://upload.wikimedia.org/wikipedia/commons/thumb/4/4d/OpenAI_Logo.svg/512px-OpenAI_Logo.svg.png", use_column_width=True)
+st.sidebar.image("img/semmelweis_logo_transparent.png", use_column_width=True)
 with st.sidebar:
     openai_api = st.text_input('OpenAI API Key', type = 'password', key = 'openai_key')
     openai.api_key = openai_api
@@ -107,39 +107,40 @@ Assistant:
 
 
 # streamlit app
-st.title("OpenAI X Your Data")
-st.header("Integrate Generative AI with Your Knowledge")
-st.write("Author: Hiflylabs")
+st.title("Semmelweis X Hiflylabs")
+st.header("Semmelweis GenAI/LLM Anamnézis PoC")
+st.write("Készítette: Hiflylabs")
 #st.sidebar.image("https://hiflylabs.com/_next/static/media/greenOnDark.35e68199.svg", use_column_width=True)
 
-st.sidebar.title("Instructions")
+st.sidebar.title("Leírás")
 st.sidebar.markdown(
     """
-    You may set the following settings\n
+    Beállítási lehetőségek\n
 
-    1. OpenAI model selection
+    1. OpenAI modell kiválasztása
         - gpt-3.5-turbo
         - gpt-3.5-turbo-16k
         - gpt-4
         - gpt-4-1106-preview
 
-    1. Prompt parameters
-        - System message
-        - max_tokens
-        - temperature"""
+    1. Állítható prompt paraméterek
+        - system prompt szövege
+        - max kimeneti tokenszám
+        - temperature
+    """
 )
 
-MODEL = st.radio('Select the OpenAI model you want to use', 
-                 ['gpt-3.5-turbo', 'gpt-3.5-turbo-16k', 'gpt-4','gpt-4-1106-preview'], horizontal=True)
+MODEL = st.radio('A használni kívánt OpenAI modell kiválasztása', 
+                 ['gpt-3.5-turbo', 'gpt-3.5-turbo-16k', 'gpt-4', 'gpt-4-1106-preview'], horizontal=True)
 
-prompt_expander = st.expander(label='Set your Prompt settings')
+prompt_expander = st.expander(label='Prompt beállítások')
 with prompt_expander:
     cols=st.columns(2)
     with cols[0]:
-        SYSTEM_MESSAGE = st.text_area('Set a system message', value = default_system_prompt, height = 400)
+        SYSTEM_MESSAGE = st.text_area('System prompt', value = default_system_prompt, height = 400)
     with cols[1]:
-        TEMPERATURE = float(st.select_slider('Set your temperature', [str(round(i, 2)) for i in np.linspace(0.0, 2, 101)], value = '0.0')) 
-        MAX_TOKENS = st.slider('Number of max output tokens', min_value = 1, max_value = MODEL_MAX_TOKEN_LIMIT[MODEL]-MODEL_INPUT_TOKEN_SUMM_LIMIT[MODEL], value = 512)
+        TEMPERATURE = float(st.select_slider('Temperamentum', [str(round(i, 2)) for i in np.linspace(0.0, 2, 101)], value = '0.0')) 
+        MAX_TOKENS = st.slider('Maximális kimeneti tokenszám', min_value = 1, max_value = MODEL_MAX_TOKEN_LIMIT[MODEL]-MODEL_INPUT_TOKEN_SUMM_LIMIT[MODEL], value = 512)
 
 
 
@@ -148,13 +149,13 @@ with prompt_expander:
 DOCUMENTS_TO_CHOOSE_FROM = []
 docs = []
 
-uploaded_files = st.file_uploader("Upload your files! You may include PDFs, txt, docx and HTML files 😎 \n Be aware that only .pdf supports page citation, so docx, HTML, etc... will not be able to cite where the information is included in the original file.", 
+uploaded_files = st.file_uploader("Töltsön fel a fájlokat! Elfogadott formátumok: PDF, HTML, TXT, DOCX", 
                      type = ['pdf', 'html', 'txt', 'docx'], accept_multiple_files=True)
     
 if uploaded_files:
 
     if not openai_api:
-        st.warning('🔑🔒 Paste your OpenAI API key on the sidebar 🔑🔒')
+        st.warning('🔑🔒 A folytatáshoz adja meg az OpenAI API kulcsot az oldalsó panelen 🔑🔒')
 
     else:
     
@@ -198,8 +199,8 @@ if uploaded_files:
 col1, col2 = st.columns([2, 1])
 
 with col1:
-    st.caption("""To get rid of chat history and start a new session, please clear cache memory. 
-            This is suggested in case of document deletion or addition as well.""")
+    st.caption("""A chat előzmények törléséhez és egy új beszélgetés kezdeményezéséhez törölje a cache-t.
+            Ez a lépés javasolt dokumentumok hozzáadása vagy törlése utána is.""")
 with col2:
     if st.button("Clear cache"):
         st.cache_data.clear()
@@ -209,17 +210,17 @@ with col2:
 #### end of clear cache
 
 if len(DOCUMENTS_TO_CHOOSE_FROM) == 0:
-        st.write('Upload your documents!')
+        st.write('Töltse fel a dokumentumokat!')
 
 else:
     
     WHOLE_DOC, input_tokens = concat_docs_count_tokens(docs, encoding)
-    st.write('Number of input tokens: ' + str(len(input_tokens)))
-    st.write('💰 Approx. cost of processing, not including completion:', str(round(MODEL_COST[MODEL] * (len(input_tokens) + 500) / 1000, 5)), 'USD')
+    st.write('Bemeneti tokenszám: ' + str(len(input_tokens)))
+    # st.write('💰 Approx. cost of processing, not including completion:', str(round(MODEL_COST[MODEL] * (len(input_tokens) + 500) / 1000, 5)), 'USD')
 
 
     msg = st.chat_message('assistant')
-    msg.write("Hello 👋 Ask me questions about your uploaded documents!")
+    msg.write("Üdvözlöm! 👋 Tegyen fel kérdéseket a feltöltött dokumentumokkal kapcsolatban!")
 
     ### chat elements integration
 
@@ -236,7 +237,7 @@ else:
         with st.chat_message(message["role"]):
             st.markdown(message["content"])
 
-    if QUERY := st.chat_input("Enter your question here"):
+    if QUERY := st.chat_input("Ide írja a kérdését"):
 
 
         # Display user message in chat message container
@@ -282,11 +283,11 @@ else:
 
         if len(st.session_state.messages) > 0:
 
-            sources_expander = st.expander(label='Check sources identified as relevant')
+            sources_expander = st.expander(label='Forrás')
             with sources_expander:
                 #st.write('\n')
                 if len(input_tokens) <= MODEL_INPUT_TOKEN_SUMM_LIMIT[MODEL]:
-                    st.write('All sources were used within the prompt')
+                    st.write('A válasz generálásához az összes feltöltött dokumentum felhasználásra került.')
                 else:
-                    #st.write("Below are the sources that have been identified as relevant:")
+                    st.write("A válasz generálásához az alábbi, relevánsnak ítélt dokumentumok lettek felhasználva:")
                     st.text(sources)
