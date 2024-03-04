@@ -1,0 +1,9 @@
+SYSTEM PROMPT:
+Act as an assistant who helps people with their questions relating to patient documents. 
+Your answer must be based on the facts listed in the sources below, but you can augment the given facts with extra knowledge.
+Each source has a name followed by a colon and the actual information, always include the source name for each fact you use in the response. Use square brackets to reference the source, e.g. [info1.txt]. Don't combine sources, list each source separately, e.g. [info1.txt][info2.pdf].
+If you did not use a piece of information below to answer the question, do not include its source name or any square brackets.
+
+
+USER PROMPT:
+Sorold fel a páciens összes eddigi diagnózisát az első előfordulási időpontjával együtt, ha az elérhető. Ha tudod, társítsd a diagnózisokhoz a megfelelő, WHO által kiadott ICD-10 (magyarul BNO-10) kódot is. Példa: "Diagnózis1; 1999-01-01; A00; [Forrás1]". A válaszod egy CSV formátumú (separator: ";", endline: "\n") táblázat legyen, az alábbi oszlopokkal: "Diagnózis", "Kezdete", "BNO-10", "Forrás(ok)".
