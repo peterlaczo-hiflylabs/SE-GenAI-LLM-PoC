@@ -24,7 +24,7 @@ from utils import (
 load_dotenv()
 st.sidebar.image("img/semmelweis_logo_transparent.png", use_column_width=True)
 with st.sidebar:
-    openai_api = str(os.getenv('API_key'))#st.text_input('OpenAI API kulcs', type = 'password', key = 'openai_key')
+    openai_api = str(os.getenv('openai_api_key'))#st.text_input('OpenAI API kulcs', type = 'password', key = 'openai_key')
     openai.api_key = openai_api
     os.environ["OPENAI_API_KEY"] = openai_api
 
@@ -32,32 +32,9 @@ with st.sidebar:
 # openai models, settings
 embedder = 'text-embedding-ada-002'
 
-MODEL_RELEVANT_DOC_NUMBER = {'gpt-3.5-turbo' : 3,
-                            'gpt-3.5-turbo-16k' : 5,
-                            'gpt-4' : 5,
-                            'gpt-4-1106-preview' : 3}
-
-MODEL_INPUT_TOKEN_SUMM_LIMIT = {'gpt-3.5-turbo' : 3200,
-                                'gpt-3.5-turbo-16k' : 14200,
-                                'gpt-4' : 7200,
-                                'gpt-4-1106-preview' : 125000}
-
-MODEL_MAX_TOKEN_LIMIT = {'gpt-3.5-turbo' : 4097,
-                        'gpt-3.5-turbo-16k' : 16385,
-                        'gpt-4' : 8192,
-                        'gpt-4-1106-preview' : 128000}
-
-MODEL_COST = {'gpt-3.5-turbo' : 0.0015,
-              'gpt-3.5-turbo-16k' : 0.003,
-              'gpt-4' : 0.03,
-              'gpt-4-1106-preview' : 0.01}
-
-
-MAX_CONTEXT_QUESTIONS = {'gpt-3.5-turbo' : 10,
-                        'gpt-3.5-turbo-16k' : 40,
-                        'gpt-4' : 20,
-                        'gpt-4-1106-preview' : 120}
-
+MODEL_INPUT_TOKEN_SUMM_LIMIT = 125000
+MODEL_MAX_TOKEN_LIMIT = 128000
+MAX_CONTEXT_QUESTIONS = 120
 
 #-------------------------------------------------------------------------------------------------------------------
 # functions, prompts
@@ -104,7 +81,7 @@ def retrieve_relevant_chunks(user_input, db, model):
 
     query_embedded = generate_embeddings(user_input)
 
-    sim_docs = db.max_marginal_relevance_search_by_vector(query_embedded, k = MODEL_RELEVANT_DOC_NUMBER[model])
+    sim_docs = db.max_marginal_relevance_search_by_vector(query_embedded, k = 3)
     results = [doc.metadata['source'].split("\\")[-1] + "-page-" + str(doc.metadata['page'] )+ ": " + doc.page_content.replace("\n", "").replace("\r", "") for doc in sim_docs]
     sources = "\n".join(results)
 
@@ -161,25 +138,24 @@ st.sidebar.markdown(
        adatokat kinyerni a rendszerből.
     """
 )
+#model parameters
 model_name = 'gpt-4-1106-preview'
 MODEL = model_name
-st.caption(f'A Használt OpenAI modell: {model_name}')
 SYSTEM_MESSAGE = """Act as an assistant who helps people with their questions relating to patient documents. 
 Your answer must be based on the facts listed in the sources below, but you can augment the given facts with extra knowledge.
 Each source has a name followed by a colon and the actual information, always include the source name for each fact you use in the response. Use square brackets to reference the source, e.g. [info1.txt]. Don't combine sources, list each source separately, e.g. [info1.txt][info2.pdf].
 If you did not use a piece of information below to answer the question, do not include its source name or any square brackets."""
 TEMPERATURE = 0
-MAX_TOKENS = MODEL_MAX_TOKEN_LIMIT[MODEL]-MODEL_INPUT_TOKEN_SUMM_LIMIT[MODEL]
-
+MAX_TOKENS = MODEL_MAX_TOKEN_LIMIT-MODEL_INPUT_TOKEN_SUMM_LIMIT
 
 ids = set([file['name'].split('/')[0] for file in list_files_in_container(blob_storage, "patient-documents")])
 selected_id = st.selectbox("Válaszd ki az azonosítót:", ids)
-# if selected_container_name:
-    #### UPLOAD DOCS #####
 
-DOCUMENTS_TO_CHOOSE_FROM = []
+#### UPLOAD DOCS #####
 docs = []
+#first filtering, current ID filter
 files = [file for file in list_files_in_container(blob_storage, "patient-documents") if file['name'].split('/')[0] == selected_id and len(file['name'].split('/')) > 2]
+#second filtering, chunking sources (txt-s)
 selected_files = [file for file in files if file['name'].split('/')[2] == "filtered" and f"{selected_id}_" in file['name'].split('/')[-1]]
     
 if selected_files:
@@ -192,119 +168,107 @@ if selected_files:
         for uploaded_file in selected_files:
 
             filename = uploaded_file['name'].split('/')[-1]
-            DOCUMENTS_TO_CHOOSE_FROM.append(filename)
             
             txt_doc_chunks = text_to_chunk(select_blob_file(blob_storage,'patient-documents',uploaded_file))
             docs.extend(txt_doc_chunks)
 
         docs_original = deepcopy(docs)
 
-
         #### STORE DOCS IN VECTOR DATABASE
         embeddings, db = create_db(docs)
 
 #### END OF UPLOAD PART ####
 
-
 #### Clear cache ####
+if "previous_id" not in st.session_state:
+    st.session_state.previous_id = selected_id
 
-col1, col2 = st.columns([2, 1])
-
-with col1:
-    st.caption("""A chat előzmények törléséhez és egy új beszélgetés kezdeményezéséhez törölje a cache-t.""")
-with col2:
-    if st.button("Clear cache"):
-        st.cache_data.clear()
-        for key in st.session_state.keys():
-            del st.session_state[key]
-
+if selected_id != st.session_state.previous_id:
+    st.session_state.previous_id = selected_id
+    st.cache_data.clear()
+    for key in st.session_state.keys():
+        del st.session_state[key]
 
 
 #### end of clear cache
-
-if len(DOCUMENTS_TO_CHOOSE_FROM) == 0:
-        st.write('Válassza ki a személyt, akinek az adataira kíváncsi!')
-
-else:
     
-    WHOLE_DOC, input_tokens = concat_docs_count_tokens(docs, encoding)
-    st.write('Bemeneti tokenszám: ' + str(len(input_tokens)))
-    # st.write('💰 Approx. cost of processing, not including completion:', str(round(MODEL_COST[MODEL] * (len(input_tokens) + 500) / 1000, 5)), 'USD')
+WHOLE_DOC, input_tokens = concat_docs_count_tokens(docs, encoding)
+st.write('Bemeneti tokenszám: ' + str(len(input_tokens)))
+# st.write('💰 Approx. cost of processing, not including completion:', str(round(MODEL_COST[MODEL] * (len(input_tokens) + 500) / 1000, 5)), 'USD')
 
-    #showing CSV
-    csv_file = [file for file in files if file['name'].split('/')[1] == 'cache']
-    if len(csv_file) != 0:
-        st.write(pd.read_csv(io.StringIO(select_blob_file(blob_storage,'patient-documents',csv_file[0])), sep=';',))
+#showing CSV
+csv_file = [file for file in files if file['name'].split('/')[1] == 'cache']
+if len(csv_file) != 0:
+    st.write(pd.read_csv(io.StringIO(select_blob_file(blob_storage,'patient-documents',csv_file[0])), sep=';',))
 
-    msg = st.chat_message('assistant')
-    msg.write("Üdvözlöm! 👋 Tegyen fel kérdéseket a kiválasztott személlyel kapcsolatban!")
+msg = st.chat_message('assistant')
+msg.write("Üdvözlöm! 👋 Tegyen fel kérdéseket a kiválasztott személlyel kapcsolatban!")
 
-    ### chat elements integration
+### chat elements integration
 
-    # Set a default model
-    if "openai_model" not in st.session_state:
-        st.session_state["openai_model"] = MODEL
+# Set a default model
+if "openai_model" not in st.session_state:
+    st.session_state["openai_model"] = MODEL
 
-    # Initialize chat history
-    if "messages" not in st.session_state:
-        st.session_state.messages = []
-   
-    # Display chat messages from history on app rerun
-    for message in st.session_state.messages:
-        with st.chat_message(message["role"]):
-            st.markdown(message["content"])
+# Initialize chat history
+if "messages" not in st.session_state:
+    st.session_state.messages = []
 
-    if QUERY := st.chat_input("Ide írja a kérdését"):
+# Display chat messages from history on app rerun
+for message in st.session_state.messages:
+    with st.chat_message(message["role"]):
+        st.markdown(message["content"])
+
+if QUERY := st.chat_input("Ide írja a kérdését"):
+
+    # Display user message in chat message container
+    with st.chat_message("user"):
+        st.markdown(QUERY)
+
+    # Display assistant response in chat message container
+    with st.chat_message("assistant"):
+        message_placeholder = st.empty()
+
+        if len(input_tokens) <= MODEL_INPUT_TOKEN_SUMM_LIMIT: # maybe we can fit everything into the prompt, why not
+            print('include all documents')
+            results = [doc.metadata['source'].split("\\")[-1] + "-page-" + str(doc.metadata['page'] )+ ": " + doc.page_content.replace("\n", "").replace("\r", "") for doc in docs]
+            sources = "\n".join(results)   
+        else:
+            sources = retrieve_relevant_chunks(QUERY, db, MODEL)
 
 
-        # Display user message in chat message container
-        with st.chat_message("user"):
-            st.markdown(QUERY)
+        messages =[
+                    {"role": "system", "content" : "You are a helpful assistant helping people answer their questions related to documents."},
+                    {"role": "user", "content": system_message.format(system_prompt = SYSTEM_MESSAGE, sources=sources)},
+                    *st.session_state.messages,
+                    {"role": "user", "content": question_message.format(question=QUERY)}
+                    ]
+        
+        # to always fit in context, either limit historic messages, or count tokens
+        # current solution: if we reach model-specific max msg number or token count, remove q-a pairs from beginning until conditions are met
+        
+        current_token_count = len(encoding.encode(' '.join([i['content'] for i in messages])))
 
-        # Display assistant response in chat message container
-        with st.chat_message("assistant"):
-            message_placeholder = st.empty()
+        while (len(messages)-3 > MAX_CONTEXT_QUESTIONS * 2) or (current_token_count >= MODEL_INPUT_TOKEN_SUMM_LIMIT):
 
-            if len(input_tokens) <= MODEL_INPUT_TOKEN_SUMM_LIMIT[MODEL]: # maybe we can fit everything into the prompt, why not
-                print('include all documents')
-                results = [doc.metadata['source'].split("\\")[-1] + "-page-" + str(doc.metadata['page'] )+ ": " + doc.page_content.replace("\n", "").replace("\r", "") for doc in docs]
-                sources = "\n".join(results)   
-            else:
-                sources = retrieve_relevant_chunks(QUERY, db, MODEL)
-
-
-            messages =[
-                        {"role": "system", "content" : "You are a helpful assistant helping people answer their questions related to documents."},
-                        {"role": "user", "content": system_message.format(system_prompt = SYSTEM_MESSAGE, sources=sources)},
-                        *st.session_state.messages,
-                        {"role": "user", "content": question_message.format(question=QUERY)}
-                        ]
-            
-            # to always fit in context, either limit historic messages, or count tokens
-            # current solution: if we reach model-specific max msg number or token count, remove q-a pairs from beginning until conditions are met
-          
+            messages.pop(3)            
             current_token_count = len(encoding.encode(' '.join([i['content'] for i in messages])))
 
-            while (len(messages)-3 > MAX_CONTEXT_QUESTIONS[MODEL] * 2) or (current_token_count >= MODEL_INPUT_TOKEN_SUMM_LIMIT[MODEL]):
+        full_response = generate_response(messages, MODEL, TEMPERATURE, MAX_TOKENS)
 
-                messages.pop(3)            
-                current_token_count = len(encoding.encode(' '.join([i['content'] for i in messages])))
+        message_placeholder.markdown(full_response)
 
-            full_response = generate_response(messages, MODEL, TEMPERATURE, MAX_TOKENS)
+    # Add user and AI message to chat history
+    st.session_state.messages.append({"role": "user", "content": QUERY})
+    st.session_state.messages.append({"role": "assistant", "content": full_response})
 
-            message_placeholder.markdown(full_response)
+    if len(st.session_state.messages) > 0:
 
-        # Add user and AI message to chat history
-        st.session_state.messages.append({"role": "user", "content": QUERY})
-        st.session_state.messages.append({"role": "assistant", "content": full_response})
-
-        if len(st.session_state.messages) > 0:
-
-            sources_expander = st.expander(label='Forrás')
-            with sources_expander:
-                #st.write('\n')
-                if len(input_tokens) <= MODEL_INPUT_TOKEN_SUMM_LIMIT[MODEL]:
-                    st.write('A válasz generálásához az összes feltöltött dokumentum felhasználásra került.')
-                else:
-                    st.write("A válasz generálásához az alábbi, relevánsnak ítélt dokumentumok lettek felhasználva:")
-                    st.text(sources)
+        sources_expander = st.expander(label='Forrás')
+        with sources_expander:
+            #st.write('\n')
+            if len(input_tokens) <= MODEL_INPUT_TOKEN_SUMM_LIMIT:
+                st.write('A válasz generálásához az összes feltöltött dokumentum felhasználásra került.')
+            else:
+                st.write("A válasz generálásához az alábbi, relevánsnak ítélt dokumentumok lettek felhasználva:")
+                st.text(sources)
