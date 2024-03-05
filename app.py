@@ -1,68 +1,49 @@
-# packages
 import io
-import re
+#import re
 import os
 import openai
-import streamlit as st
+import tiktoken
+
 import numpy as np
 import pandas as pd
-
-import tiktoken
-encoding = tiktoken.get_encoding("cl100k_base")
+import streamlit as st
 
 from copy import deepcopy
 from dotenv import load_dotenv
-from langchain.text_splitter import RecursiveCharacterTextSplitter
-from langchain.docstore.document import Document
-from azure.storage.blob import BlobServiceClient
-from utils import (
+#from langchain.text_splitter import RecursiveCharacterTextSplitter
+#from langchain.docstore.document import Document
+
+from utils.blob_storage_handlers import *
+
+from utilities import (
+    load_txt,
     create_db,
     concat_docs_count_tokens,
     add_context_to_doc_chunks
 )
 
+
 load_dotenv()
-st.sidebar.image("img/semmelweis_logo_transparent.png", use_column_width=True)
-with st.sidebar:
-    openai_api = str(os.getenv('openai_api_key'))#st.text_input('OpenAI API kulcs', type = 'password', key = 'openai_key')
-    openai.api_key = openai_api
-    os.environ["OPENAI_API_KEY"] = openai_api
 
-
-# openai models, settings
-embedder = 'text-embedding-ada-002'
-
+# Define default variables
 MODEL_INPUT_TOKEN_SUMM_LIMIT = 125000
 MODEL_MAX_TOKEN_LIMIT = 128000
+MAX_TOKENS = MODEL_MAX_TOKEN_LIMIT-MODEL_INPUT_TOKEN_SUMM_LIMIT
 MAX_CONTEXT_QUESTIONS = 120
+TEMPERATURE = 0
 
-#-------------------------------------------------------------------------------------------------------------------
-# functions, prompts
-def connect_to_storage(account_name, key):
-    blob_service_client = BlobServiceClient.from_connection_string(f"DefaultEndpointsProtocol=https;AccountName={account_name};AccountKey={key};EndpointSuffix=core.windows.net")
-    return blob_service_client
 
-def list_files_in_container(blob_service_client, container_name):
-    client = blob_service_client.get_container_client(container_name)
-    blob_list = client.list_blobs()
-    return [blob for blob in blob_list]
+encoding = tiktoken.get_encoding("cl100k_base")
 
-def select_blob_file(blob_service_client, container_name, blob):
-    client = blob_service_client.get_container_client(container_name)
-    blob_file = client.get_blob_client(blob)
-    return (blob_file.download_blob()).readall().decode("utf-8")
+# TODO: change embedder to azure oai
+embedder = 'text-embedding-ada-002'
+MODEL = 'gpt-4-1106-preview'
 
-def text_to_chunk(text):
-    DOCS = []
-    text = re.sub(r"\n\s*\n", "\n\n", text)
-    text_splitted = RecursiveCharacterTextSplitter(chunk_size = 100000, chunk_overlap = 200).split_text(text)
-    docs = [Document(page_content=t, metadata={'source' : filename, 'page' : 'all'}) for t in text_splitted]
-    docs = add_context_to_doc_chunks(docs)
-    DOCS.append(docs)
+account_name = str(os.getenv('azure_name'))
+key = str(os.getenv('azure_key'))
+blob_storage = connect_to_storage(account_name, key)
 
-    DOCS = [item for sublist in DOCS for item in sublist]
 
-    return DOCS
 
 def generate_embeddings(text):
     response = openai.Embedding.create(input=text, model = embedder)
@@ -76,6 +57,7 @@ def generate_response(messages, MODEL, TEMPERATURE, MAX_TOKENS):
         temperature=TEMPERATURE, 
         max_tokens=MAX_TOKENS)
     return completion.choices[0]['message']['content']
+
 
 def retrieve_relevant_chunks(user_input, db, model):
 
@@ -101,12 +83,6 @@ Sources:
 
 """
 
-#question_message = """
-#Question: {question}
-#
-#Answer: 
-#"""
-
 question_message = """
 {question}
 
@@ -115,16 +91,20 @@ Assistant:
 
 
 #-------------------------------------------------------------------------------------------------------------------
-account_name = str(os.getenv('azure_name'))
-key = str(os.getenv('azure_key'))
-blob_storage = connect_to_storage(account_name, key)
 
 
 # streamlit app
 st.title("Semmelweis X Hiflylabs")
 st.header("Semmelweis GenAI/LLM Anamnézis PoC")
 st.write("Készítette: Hiflylabs")
-#st.sidebar.image("https://hiflylabs.com/_next/static/media/greenOnDark.35e68199.svg", use_column_width=True)
+
+
+st.sidebar.image("img/semmelweis_logo_transparent.png", use_column_width=True)
+with st.sidebar:
+    openai_api = str(os.getenv('openai_api_key'))
+    openai.api_key = openai_api
+    os.environ["OPENAI_API_KEY"] = openai_api
+
 
 st.sidebar.title("Leírás")
 st.sidebar.markdown(
@@ -139,14 +119,12 @@ st.sidebar.markdown(
     """
 )
 #model parameters
-model_name = 'gpt-4-1106-preview'
-MODEL = model_name
+
 SYSTEM_MESSAGE = """Act as an assistant who helps people with their questions relating to patient documents. 
 Your answer must be based on the facts listed in the sources below, but you can augment the given facts with extra knowledge.
 Each source has a name followed by a colon and the actual information, always include the source name for each fact you use in the response. Use square brackets to reference the source, e.g. [info1.txt]. Don't combine sources, list each source separately, e.g. [info1.txt][info2.pdf].
 If you did not use a piece of information below to answer the question, do not include its source name or any square brackets."""
-TEMPERATURE = 0
-MAX_TOKENS = MODEL_MAX_TOKEN_LIMIT-MODEL_INPUT_TOKEN_SUMM_LIMIT
+
 
 ids = set([file['name'].split('/')[0] for file in list_files_in_container(blob_storage, "patient-documents")])
 selected_id = st.selectbox("Válaszd ki az azonosítót:", ids)
@@ -169,7 +147,7 @@ if selected_files:
 
             filename = uploaded_file['name'].split('/')[-1]
             
-            txt_doc_chunks = text_to_chunk(select_blob_file(blob_storage,'patient-documents',uploaded_file))
+            txt_doc_chunks = load_txt(select_blob_file(blob_storage,'patient-documents',uploaded_file))
             docs.extend(txt_doc_chunks)
 
         docs_original = deepcopy(docs)
@@ -178,6 +156,8 @@ if selected_files:
         embeddings, db = create_db(docs)
 
 #### END OF UPLOAD PART ####
+
+
 
 #### Clear cache ####
 if "previous_id" not in st.session_state:
@@ -190,21 +170,9 @@ if selected_id != st.session_state.previous_id:
         del st.session_state[key]
 
 
-#### end of clear cache
-    
-WHOLE_DOC, input_tokens = concat_docs_count_tokens(docs, encoding)
-st.write('Bemeneti tokenszám: ' + str(len(input_tokens)))
-# st.write('💰 Approx. cost of processing, not including completion:', str(round(MODEL_COST[MODEL] * (len(input_tokens) + 500) / 1000, 5)), 'USD')
-
-#showing CSV
-csv_file = [file for file in files if file['name'].split('/')[1] == 'cache']
-if len(csv_file) != 0:
-    st.write(pd.read_csv(io.StringIO(select_blob_file(blob_storage,'patient-documents',csv_file[0])), sep=';',))
-
-msg = st.chat_message('assistant')
-msg.write("Üdvözlöm! 👋 Tegyen fel kérdéseket a kiválasztott személlyel kapcsolatban!")
-
-### chat elements integration
+# - - - - - - - - - - - - - - - -
+# Define Session state elements
+# - - - - - - - - - - - - - - - -
 
 # Set a default model
 if "openai_model" not in st.session_state:
@@ -214,11 +182,29 @@ if "openai_model" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+# - - - - - - - - - - - - - - -
+# Chat main part
+# - - - - - - - - - - - - - - -
+
+WHOLE_DOC, input_tokens = concat_docs_count_tokens(docs, encoding)
+st.write('A paciens dokumentumainak tokenszáma: ' + str(len(input_tokens)))
+
+#showing CSV
+csv_file = [file for file in files if file['name'].split('/')[1] == 'cache']
+if len(csv_file) != 0:
+    st.write(pd.read_csv(io.StringIO(select_blob_file(blob_storage,'patient-documents',csv_file[0])), sep=';',))
+
+
+msg = st.chat_message('assistant')
+msg.write("Üdvözlöm! 👋 Tegyen fel kérdéseket a kiválasztott pácienssel kapcsolatban!")
+
 # Display chat messages from history on app rerun
 for message in st.session_state.messages:
     with st.chat_message(message["role"]):
         st.markdown(message["content"])
 
+
+# Good code under this 
 if QUERY := st.chat_input("Ide írja a kérdését"):
 
     # Display user message in chat message container
@@ -229,7 +215,7 @@ if QUERY := st.chat_input("Ide írja a kérdését"):
     with st.chat_message("assistant"):
         message_placeholder = st.empty()
 
-        if len(input_tokens) <= MODEL_INPUT_TOKEN_SUMM_LIMIT: # maybe we can fit everything into the prompt, why not
+        if len(input_tokens) <= MODEL_INPUT_TOKEN_SUMM_LIMIT:
             print('include all documents')
             results = [doc.metadata['source'].split("\\")[-1] + "-page-" + str(doc.metadata['page'] )+ ": " + doc.page_content.replace("\n", "").replace("\r", "") for doc in docs]
             sources = "\n".join(results)   
@@ -243,9 +229,6 @@ if QUERY := st.chat_input("Ide írja a kérdését"):
                     *st.session_state.messages,
                     {"role": "user", "content": question_message.format(question=QUERY)}
                     ]
-        
-        # to always fit in context, either limit historic messages, or count tokens
-        # current solution: if we reach model-specific max msg number or token count, remove q-a pairs from beginning until conditions are met
         
         current_token_count = len(encoding.encode(' '.join([i['content'] for i in messages])))
 
@@ -266,7 +249,6 @@ if QUERY := st.chat_input("Ide írja a kérdését"):
 
         sources_expander = st.expander(label='Forrás')
         with sources_expander:
-            #st.write('\n')
             if len(input_tokens) <= MODEL_INPUT_TOKEN_SUMM_LIMIT:
                 st.write('A válasz generálásához az összes feltöltött dokumentum felhasználásra került.')
             else:
