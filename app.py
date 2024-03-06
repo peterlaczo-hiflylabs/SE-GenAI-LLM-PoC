@@ -10,10 +10,8 @@ import streamlit as st
 
 from copy import deepcopy
 from dotenv import load_dotenv
-#from langchain.text_splitter import RecursiveCharacterTextSplitter
-#from langchain.docstore.document import Document
-
 from utils.blob_storage_handlers import *
+from utils.prompts import system_message, default_system_prompt, question_message
 
 from utilities import (
     load_txt,
@@ -69,62 +67,6 @@ def retrieve_relevant_chunks(user_input, db, model):
 
     return sources
 
-#-------------------------------------------------------------------------------------------------------------------
-
-default_system_prompt = """Act as an assistant that helps people with their questions relating to a wide variety of documents. 
-Answer ONLY with the facts listed in the list of sources below. If there isn't enough information below, say you don't know. Do not generate answers that don't use the sources below. If asking a clarifying question to the user would help, ask the question. 
-Each source has a name followed by colon and the actual information, always include the source name for each fact you use in the response. Use square brakets to reference the source, e.g. [info1.txt]. Don't combine sources, list each source separately, e.g. [info1.txt][info2.pdf].
-If you did not use the information below to answer the question, do not include the source name or any square brackets."""
-
-system_message = """{system_prompt}
-
-Sources:
-{sources}
-
-"""
-
-question_message = """
-{question}
-
-Assistant: 
-"""
-
-
-#-------------------------------------------------------------------------------------------------------------------
-
-
-# streamlit app
-st.title("Semmelweis X Hiflylabs")
-st.header("Semmelweis GenAI/LLM Anamnézis PoC")
-st.write("Készítette: Hiflylabs")
-
-
-st.sidebar.image("img/semmelweis_logo_transparent.png", use_column_width=True)
-with st.sidebar:
-    openai_api = str(os.getenv('openai_api_key'))
-    openai.api_key = openai_api
-    os.environ["OPENAI_API_KEY"] = openai_api
-
-
-st.sidebar.title("Leírás")
-st.sidebar.markdown(
-    """
-   Lépések\n
-
-    1. Személy kiválasztása
-
-    2. Ha a táblázat nem biztosít elég anyagot,
-       akkor a chat segítségével lehet további
-       adatokat kinyerni a rendszerből.
-    """
-)
-#model parameters
-
-SYSTEM_MESSAGE = """Act as an assistant who helps people with their questions relating to patient documents. 
-Your answer must be based on the facts listed in the sources below, but you can augment the given facts with extra knowledge.
-Each source has a name followed by a colon and the actual information, always include the source name for each fact you use in the response. Use square brackets to reference the source, e.g. [info1.txt]. Don't combine sources, list each source separately, e.g. [info1.txt][info2.pdf].
-If you did not use a piece of information below to answer the question, do not include its source name or any square brackets."""
-
 
 ids = set([file['name'].split('/')[0] for file in list_files_in_container(blob_storage, "patient-documents")])
 selected_id = st.selectbox("Válaszd ki az azonosítót:", ids)
@@ -138,24 +80,18 @@ selected_files = [file for file in files if file['name'].split('/')[2] == "filte
     
 if selected_files:
 
-    if not openai_api:
-        st.warning('🔑🔒 A folytatáshoz adja meg az OpenAI API kulcsot az oldalsó panelen 🔑🔒')
+    for uploaded_file in selected_files:
 
-    else:
-    
-        for uploaded_file in selected_files:
+        filename = uploaded_file['name'].split('/')[-1]
+        
+        txt_doc_chunks = load_txt(select_blob_file(blob_storage,'patient-documents',uploaded_file))
+        docs.extend(txt_doc_chunks)
 
-            filename = uploaded_file['name'].split('/')[-1]
-            
-            txt_doc_chunks = load_txt(select_blob_file(blob_storage,'patient-documents',uploaded_file))
-            docs.extend(txt_doc_chunks)
+    docs_original = deepcopy(docs)
 
-        docs_original = deepcopy(docs)
+    #### STORE DOCS IN VECTOR DATABASE
+    embeddings, db = create_db(docs)
 
-        #### STORE DOCS IN VECTOR DATABASE
-        embeddings, db = create_db(docs)
-
-#### END OF UPLOAD PART ####
 
 
 
@@ -182,9 +118,34 @@ if "openai_model" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+
 # - - - - - - - - - - - - - - -
 # Chat main part
 # - - - - - - - - - - - - - - -
+    
+st.title("Semmelweis X Hiflylabs")
+st.header("Semmelweis GenAI/LLM Anamnézis PoC")
+st.write("Készítette: Hiflylabs")
+
+st.sidebar.image("img/semmelweis_logo_transparent.png", use_column_width=True)
+with st.sidebar:
+    openai_api = str(os.getenv('openai_api_key'))
+    openai.api_key = openai_api
+    os.environ["OPENAI_API_KEY"] = openai_api
+
+
+st.sidebar.title("Leírás")
+st.sidebar.markdown(
+    """
+   Lépések\n
+
+    1. Személy kiválasztása
+
+    2. Ha a táblázat nem biztosít elég anyagot,
+       akkor a chat segítségével lehet további
+       adatokat kinyerni a rendszerből.
+    """
+)
 
 WHOLE_DOC, input_tokens = concat_docs_count_tokens(docs, encoding)
 st.write('A paciens dokumentumainak tokenszáma: ' + str(len(input_tokens)))
@@ -225,7 +186,7 @@ if QUERY := st.chat_input("Ide írja a kérdését"):
 
         messages =[
                     {"role": "system", "content" : "You are a helpful assistant helping people answer their questions related to documents."},
-                    {"role": "user", "content": system_message.format(system_prompt = SYSTEM_MESSAGE, sources=sources)},
+                    {"role": "user", "content": system_message.format(system_prompt = default_system_prompt, sources=sources)},
                     *st.session_state.messages,
                     {"role": "user", "content": question_message.format(question=QUERY)}
                     ]

@@ -17,7 +17,7 @@ with st.sidebar:
 import tiktoken
 encoding = tiktoken.get_encoding("cl100k_base")
 
-from utils import (
+from utilities import (
     load_pdf,
     load_HTML,
     load_docx,
