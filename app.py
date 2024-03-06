@@ -14,10 +14,10 @@ from utils.blob_storage_handlers import *
 from utils.prompts import system_message, default_system_prompt, question_message
 
 from utilities import (
+    text_to_html,
     load_txt,
     create_db,
-    concat_docs_count_tokens,
-    add_context_to_doc_chunks
+    concat_docs_count_tokens
 )
 
 
@@ -84,15 +84,13 @@ if selected_files:
 
         filename = uploaded_file['name'].split('/')[-1]
         
-        txt_doc_chunks = load_txt(select_blob_file(blob_storage,'patient-documents',uploaded_file))
+        txt_doc_chunks = load_txt(select_blob_file(blob_storage,'patient-documents',uploaded_file),filename=uploaded_file['name'].split('/')[-1])
         docs.extend(txt_doc_chunks)
 
     docs_original = deepcopy(docs)
 
     #### STORE DOCS IN VECTOR DATABASE
     embeddings, db = create_db(docs)
-
-
 
 
 #### Clear cache ####
@@ -133,7 +131,6 @@ with st.sidebar:
     openai.api_key = openai_api
     os.environ["OPENAI_API_KEY"] = openai_api
 
-
 st.sidebar.title("Leírás")
 st.sidebar.markdown(
     """
@@ -153,8 +150,53 @@ st.write('A paciens dokumentumainak tokenszáma: ' + str(len(input_tokens)))
 #showing CSV
 csv_file = [file for file in files if file['name'].split('/')[1] == 'cache']
 if len(csv_file) != 0:
-    st.write(pd.read_csv(io.StringIO(select_blob_file(blob_storage,'patient-documents',csv_file[0])), sep=';',))
+    csv_doc =pd.read_csv(io.StringIO(select_blob_file(blob_storage,'patient-documents',csv_file[0])), sep=';')
+    for index, row in csv_doc.iterrows():
+        col1, col2, col3, col4, col5 = st.columns((1, 3, 2, 1, 3))
+        col1.write(index)
+        col2.write(row['Diagnózis'])
+        col3.write(row['Kezdete'])
+        col4.write(row['BNO-10'])
+        do_action = col5.button(row["Forrás(ok) "], key=index, type="secondary")
+        if do_action:
+            if "html_table_name" not in st.session_state:
+                st.session_state.html_table_name = row["Forrás(ok) "]
+            if row["Forrás(ok) "] != st.session_state.html_table_name:
+                st.session_state.html_table_name = row["Forrás(ok) "]
 
+if "html_table_name" in st.session_state:
+    for element in selected_files:
+        if element['name'].split('/')[-1] in st.session_state.html_table_name:
+            st.write(st.session_state.html_table_name)
+            html_document = text_to_html((select_blob_file(blob_storage,'patient-documents',element)))
+            st.markdown(html_document, unsafe_allow_html=True)
+            break
+
+st.markdown(
+    """
+    <style>
+    button[kind="secondary"] {
+        background: none!important;
+        border: none;
+        padding: 0!important;
+        color: black !important;
+        text-decoration: none;
+        cursor: pointer;
+        border: none !important;
+    }
+    button[kind="secondary"]:hover {
+        text-decoration: none;
+        color: black !important;
+    }
+    button[kind="secondary"]:focus {
+        outline: none !important;
+        box-shadow: none !important;
+        color: black !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 msg = st.chat_message('assistant')
 msg.write("Üdvözlöm! 👋 Tegyen fel kérdéseket a kiválasztott pácienssel kapcsolatban!")

@@ -12,6 +12,12 @@ from langchain.vectorstores import FAISS
 ### Splitters for different data sources ###
 text_splitter = RecursiveCharacterTextSplitter(chunk_size = 100000, chunk_overlap = 200)
 
+def text_to_html(document):
+    html = ""
+    for paragraph in document.split('\n'):
+        html += f"<p>{paragraph}</p>"
+    return html
+
 
 def add_context_to_doc_chunks(_docs):
 
