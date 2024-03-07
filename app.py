@@ -12,6 +12,7 @@ from copy import deepcopy
 from dotenv import load_dotenv
 from utils.blob_storage_handlers import *
 from utils.prompts import system_message, default_system_prompt, question_message
+from utils.CSV_formatter import format_csv
 
 from utilities import (
     extract_text_between_brackets,
@@ -71,7 +72,7 @@ def retrieve_relevant_chunks(user_input, db, model):
 
 ids = set([file['name'].split('/')[0] for file in list_files_in_container(blob_storage, "patient-documents")])
 selected_id = st.selectbox("Válaszd ki az azonosítót:", ids)
-
+# selected_id = '008359041'
 #### UPLOAD DOCS #####
 docs = []
 #first filtering, current ID filter
@@ -158,13 +159,15 @@ st.write('A paciens dokumentumainak tokenszáma: ' + str(len(input_tokens)))
 csv_file = [file for file in files if file['name'].split('/')[1] == 'cache']
 if len(csv_file) != 0:
     csv_doc =pd.read_csv(io.StringIO(select_blob_file(blob_storage,'patient-documents',csv_file[0])), sep=';')
-    for index, row in csv_doc.iterrows():
-        col1, col2, col3, col4, col5 = st.columns((1, 3, 2, 1, 3))
+    formatted_csv = format_csv(csv_doc)
+    for index, row in formatted_csv.iterrows():
+        col1, col2, col3, col4, col5, col6 = st.columns((1, 3, 2, 1, 3, 3))
         col1.write(index)
         col2.write(row['Diagnózis'])
         col3.write(row['Kezdete'])
         col4.write(row['BNO-10'])
-        do_action = col5.button(row["Forrás(ok) "], key=index, type="secondary")
+        col5.write(row['BNO leírás'])
+        do_action = col6.button(row["Forrás(ok) "], key=index, type="secondary")
         if do_action:
             if row["Forrás(ok) "] != st.session_state.html_table_name:
                 st.session_state.html_table_name = row["Forrás(ok) "]
