@@ -14,6 +14,7 @@ from utils.blob_storage_handlers import *
 from utils.prompts import system_message, default_system_prompt, question_message
 
 from utilities import (
+    extract_text_between_brackets,
     text_to_html,
     load_txt,
     create_db,
@@ -116,6 +117,12 @@ if "openai_model" not in st.session_state:
 if "messages" not in st.session_state:
     st.session_state.messages = []
 
+if "source_links" not in st.session_state:
+    st.session_state.source_links = None
+
+if "html_table_name" not in st.session_state:
+    st.session_state.html_table_name = ""
+
 
 # - - - - - - - - - - - - - - -
 # Chat main part
@@ -159,18 +166,11 @@ if len(csv_file) != 0:
         col4.write(row['BNO-10'])
         do_action = col5.button(row["Forrás(ok) "], key=index, type="secondary")
         if do_action:
-            if "html_table_name" not in st.session_state:
-                st.session_state.html_table_name = row["Forrás(ok) "]
             if row["Forrás(ok) "] != st.session_state.html_table_name:
                 st.session_state.html_table_name = row["Forrás(ok) "]
 
-if "html_table_name" in st.session_state:
-    for element in selected_files:
-        if element['name'].split('/')[-1] in st.session_state.html_table_name:
-            st.write(st.session_state.html_table_name)
-            html_document = text_to_html((select_blob_file(blob_storage,'patient-documents',element)))
-            st.markdown(html_document, unsafe_allow_html=True)
-            break
+html_name_placeholder = st.empty()
+html_placeholder = st.empty()
 
 st.markdown(
     """
@@ -241,19 +241,32 @@ if QUERY := st.chat_input("Ide írja a kérdését"):
             current_token_count = len(encoding.encode(' '.join([i['content'] for i in messages])))
 
         full_response = generate_response(messages, MODEL, TEMPERATURE, MAX_TOKENS)
-
         message_placeholder.markdown(full_response)
 
     # Add user and AI message to chat history
     st.session_state.messages.append({"role": "user", "content": QUERY})
     st.session_state.messages.append({"role": "assistant", "content": full_response})
 
-    if len(st.session_state.messages) > 0:
-
-        sources_expander = st.expander(label='Forrás')
-        with sources_expander:
-            if len(input_tokens) <= MODEL_INPUT_TOKEN_SUMM_LIMIT:
-                st.write('A válasz generálásához az összes feltöltött dokumentum felhasználásra került.')
-            else:
-                st.write("A válasz generálásához az alábbi, relevánsnak ítélt dokumentumok lettek felhasználva:")
-                st.text(sources)
+if len(st.session_state.messages) > 0:
+    source_links = extract_text_between_brackets(st.session_state.messages[-1]['content'])
+    if st.session_state.source_links != source_links:
+        st.session_state.source_links = None
+    sources_expander = st.expander(label='Forrás')
+    with sources_expander:
+        if len(input_tokens) <= MODEL_INPUT_TOKEN_SUMM_LIMIT:
+            #st.write('A válasz generálásához az összes feltöltött dokumentum felhasználásra került.')
+            for element_id in range(len(source_links)):
+                if st.button(source_links[element_id],key=f"expander_btn_{element_id}"):
+                    if source_links[element_id].split('-p')[0] != st.session_state.html_table_name:
+                        st.session_state.html_table_name = source_links[element_id].split('-p')[0]
+        else:
+            st.write("A válasz generálásához az alábbi, relevánsnak ítélt dokumentumok lettek felhasználva:")
+            st.text(sources)
+    
+if st.session_state.html_table_name != None:
+    for element in selected_files:
+        if element['name'].split('/')[-1] in st.session_state.html_table_name:
+            html_name_placeholder.write(st.session_state.html_table_name.strip('[').replace(']',':'))
+            html_document = text_to_html((select_blob_file(blob_storage,'patient-documents',element)), element['name'])
+            html_placeholder.markdown(html_document, unsafe_allow_html=True)
+            break

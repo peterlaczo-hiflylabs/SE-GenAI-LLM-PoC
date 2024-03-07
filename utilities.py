@@ -12,10 +12,22 @@ from langchain.vectorstores import FAISS
 ### Splitters for different data sources ###
 text_splitter = RecursiveCharacterTextSplitter(chunk_size = 100000, chunk_overlap = 200)
 
-def text_to_html(document):
-    html = ""
+def text_to_html(document, document_name):
+    html = f"""
+        <html>
+            <head>
+                <title>{document_name}</title>
+                <style>
+                    body {{
+                        background-color: EADFB4;
+                    }}
+                </style>
+            </head>
+            <body>
+    """
     for paragraph in document.split('\n'):
         html += f"<p>{paragraph}</p>"
+    html += "</body>\n</html>"
     return html
 
 
@@ -79,3 +91,7 @@ def concat_docs_count_tokens(docs, tiktoken_encoding):
     input_tokens = tiktoken_encoding.encode(WHOLE_DOC)
 
     return WHOLE_DOC, input_tokens
+
+def extract_text_between_brackets(text):
+    matches = re.findall(r'\[(.*?)\]', text)
+    return matches
