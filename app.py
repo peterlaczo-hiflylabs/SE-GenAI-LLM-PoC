@@ -43,7 +43,9 @@ account_name = str(os.getenv('azure_name'))
 key = str(os.getenv('azure_key'))
 blob_storage = connect_to_storage(account_name, key)
 
-
+openai_api = str(os.getenv('openai_api_key'))
+openai.api_key = openai_api
+os.environ["OPENAI_API_KEY"] = openai_api
 
 def generate_embeddings(text):
     response = openai.Embedding.create(input=text, model = embedder)
