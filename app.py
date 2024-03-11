@@ -114,7 +114,7 @@ selected_id = '008359041'
 #### UPLOAD DOCS #####
 docs = []
 #first filtering, current ID filter
-files = [file for file in list_files_in_container(blob_storage, "patient-documents") if file['name'].split('/')[0] == selected_id and len(file['name'].split('/')) > 2]
+files = [file for file in list_files_in_container(blob_storage, "patient-documents") if len(file['name'].split('/')) > 2 and selected_id in file['name'].split('/')[-1]]
 #second filtering, chunking sources (txt-s)
 selected_files = [file for file in files if file['name'].split('/')[2] == "filtered" and f"{selected_id}_" in file['name'].split('/')[-1]]
     
@@ -227,8 +227,8 @@ if len(csv_file) != 0:
         col2.write(row[column_names[0]])
         do_action = col3.button(row[column_names[1]], key=f"gyogyszer_btn_{index}", type="secondary")
         if do_action:
-            if row["Forrás(ok) "] != st.session_state.html_table_name:
-                st.session_state.html_table_name = row["Forrás(ok) "]
+            if row[column_names[1]] != st.session_state.html_table_name:
+                st.session_state.html_table_name = row[column_names[1]]
 
 
 html_name_placeholder = st.empty()
@@ -301,7 +301,7 @@ if len(st.session_state.messages) > 0:
             st.text(sources)
     
 if st.session_state.html_table_name != None:
-    for element in selected_files:
+    for element in files:
         if element['name'].split('/')[-1] in st.session_state.html_table_name:
             html_name_placeholder.write(st.session_state.html_table_name.strip('[').replace(']',':'))
             html_document = text_to_html((select_blob_file(blob_storage,'patient-documents',element)), element['name'])
