@@ -95,3 +95,7 @@ def concat_docs_count_tokens(docs, tiktoken_encoding):
 def extract_text_between_brackets(text):
     matches = re.findall(r'\[(.*?)\]', text)
     return matches
+
+def swap_elements(list, pos1, pos2) -> list:
+    list[pos1], list[pos2] = list[pos2], list[pos1]
+    return list

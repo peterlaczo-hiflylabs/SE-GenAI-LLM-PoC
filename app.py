@@ -12,14 +12,15 @@ from copy import deepcopy
 from dotenv import load_dotenv
 from utils.blob_storage_handlers import *
 from utils.prompts import system_message, default_system_prompt, question_message
-from utils.CSV_formatter import format_csv
+from utils.CSV_formatter import format_diagnosis_csv
 
 from utilities import (
     extract_text_between_brackets,
     text_to_html,
     load_txt,
     create_db,
-    concat_docs_count_tokens
+    concat_docs_count_tokens,
+    swap_elements
 )
 
 
@@ -78,6 +79,33 @@ def retrieve_relevant_chunks(user_input, db, model):
     sources = "\n".join(results)
 
     return sources
+
+def format_button_style():
+    st.markdown(
+    """
+    <style>
+    button[kind="secondary"] {
+        background: none!important;
+        border: none;
+        padding: 0!important;
+        color: black !important;
+        text-decoration: none;
+        cursor: pointer;
+        border: none !important;
+    }
+    button[kind="secondary"]:hover {
+        text-decoration: none;
+        color: black !important;
+    }
+    button[kind="secondary"]:focus {
+        outline: none !important;
+        box-shadow: none !important;
+        color: black !important;
+    }
+    </style>
+    """,
+    unsafe_allow_html=True,
+)
 
 
 ids = set([file['name'].split('/')[0] for file in list_files_in_container(blob_storage, "patient-documents")])
@@ -160,13 +188,13 @@ st.sidebar.markdown(
 WHOLE_DOC, input_tokens = concat_docs_count_tokens(docs, encoding)
 st.write('A paciens dokumentumainak tokenszáma: ' + str(len(input_tokens)))
 
-#showing CSV
-csv_file = [file for file in files if file['name'].split('/')[1] == 'cache']
+#showing "diagnozis" CSV
+csv_file = [file for file in files if file['name'].split('/')[1] == 'cache' and 'anamnezis_of' in file['name']]
 if len(csv_file) != 0:
     st.subheader("Diagnózis")
     csv_doc =pd.read_csv(io.StringIO(select_blob_file(blob_storage,'patient-documents',csv_file[0])), sep=';')
-    formatted_csv = format_csv(csv_doc)
-    column_names = [col for col in formatted_csv.columns]
+    formatted_csv = format_diagnosis_csv(csv_doc)
+    column_names = swap_elements([col for col in formatted_csv.columns],3,4)
     cols = st.columns((1, 4, 3, 2, 4, 4))
     for idx in range(1, len(cols)):
         cols[idx].caption(column_names[idx-1])
@@ -177,39 +205,35 @@ if len(csv_file) != 0:
         col3.write(row['Kezdete'])
         col4.write(row['BNO-10'])
         col5.write(row['BNO leírás'])
-        do_action = col6.button(row["Forrás(ok) "], key=index, type="secondary")
+        do_action = col6.button(row["Forrás(ok) "], key=f"diagnosis_btn_{index}", type="secondary")
         if do_action:
             if row["Forrás(ok) "] != st.session_state.html_table_name:
                 st.session_state.html_table_name = row["Forrás(ok) "]
 
+format_button_style()
+
+ #showing "gyogyszererzekenyseg" CSV
+csv_file = [file for file in files if file['name'].split('/')[1] == 'cache' and 'gyogyszererzekenyseg' in file['name']]
+if len(csv_file) != 0:
+    st.subheader("Gyógyszerallergia")
+    csv_doc =pd.read_csv(io.StringIO(select_blob_file(blob_storage,'patient-documents',csv_file[0])), sep=';')
+    column_names = [col for col in csv_doc.columns]
+    cols = st.columns((1, 2, 2))
+    for idx in range(1, len(cols)):
+        cols[idx].caption(column_names[idx-1])
+    for index, row in csv_doc.iterrows():
+        col1, col2, col3 = st.columns((1, 2, 2))
+        col1.write(index)
+        col2.write(row[column_names[0]])
+        do_action = col3.button(row[column_names[1]], key=f"gyogyszer_btn_{index}", type="secondary")
+        if do_action:
+            if row["Forrás(ok) "] != st.session_state.html_table_name:
+                st.session_state.html_table_name = row["Forrás(ok) "]
+
+
 html_name_placeholder = st.empty()
 html_placeholder = st.empty()
 
-st.markdown(
-    """
-    <style>
-    button[kind="secondary"] {
-        background: none!important;
-        border: none;
-        padding: 0!important;
-        color: black !important;
-        text-decoration: none;
-        cursor: pointer;
-        border: none !important;
-    }
-    button[kind="secondary"]:hover {
-        text-decoration: none;
-        color: black !important;
-    }
-    button[kind="secondary"]:focus {
-        outline: none !important;
-        box-shadow: none !important;
-        color: black !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
 
 msg = st.chat_message('assistant')
 msg.write("Üdvözlöm! 👋 Tegyen fel kérdéseket a kiválasztott pácienssel kapcsolatban!")
