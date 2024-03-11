@@ -39,11 +39,11 @@ encoding = tiktoken.get_encoding("cl100k_base")
 embedder = 'text-embedding-ada-002'
 MODEL = 'gpt-4-1106-preview'
 
-account_name = str(os.getenv('azure_name'))
-key = str(os.getenv('azure_key'))
+account_name = str(os.environ['azure_name'])
+key = str(os.environ['azure_key'])
 blob_storage = connect_to_storage(account_name, key)
 
-openai_api = str(os.getenv('openai_api_key'))
+openai_api = str(os.environ['openai_api_key'])
 openai.api_key = openai_api
 os.environ["OPENAI_API_KEY"] = openai_api
 
@@ -136,11 +136,6 @@ st.header("Semmelweis GenAI/LLM Anamnézis PoC")
 st.write("Készítette: Hiflylabs")
 
 st.sidebar.image("img/semmelweis_logo_transparent.png", use_column_width=True)
-with st.sidebar:
-    openai_api = str(os.getenv('openai_api_key'))
-    openai.api_key = openai_api
-    os.environ["OPENAI_API_KEY"] = openai_api
-
 st.sidebar.title("Leírás")
 st.sidebar.markdown(
     """
