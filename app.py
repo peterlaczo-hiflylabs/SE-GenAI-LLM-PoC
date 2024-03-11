@@ -72,7 +72,7 @@ def retrieve_relevant_chunks(user_input, db, model):
 
 ids = set([file['name'].split('/')[0] for file in list_files_in_container(blob_storage, "patient-documents")])
 selected_id = st.selectbox("Válaszd ki az azonosítót:", ids)
-# selected_id = '008359041'
+selected_id = '008359041'
 #### UPLOAD DOCS #####
 docs = []
 #first filtering, current ID filter
@@ -99,11 +99,11 @@ if selected_files:
 if "previous_id" not in st.session_state:
     st.session_state.previous_id = selected_id
 
-if selected_id != st.session_state.previous_id:
-    st.session_state.previous_id = selected_id
-    st.cache_data.clear()
-    for key in st.session_state.keys():
-        del st.session_state[key]
+# if selected_id != st.session_state.previous_id:
+#     st.session_state.previous_id = selected_id
+#     st.cache_data.clear()
+#     for key in st.session_state.keys():
+#         del st.session_state[key]
 
 
 # - - - - - - - - - - - - - - - -
@@ -158,10 +158,15 @@ st.write('A paciens dokumentumainak tokenszáma: ' + str(len(input_tokens)))
 #showing CSV
 csv_file = [file for file in files if file['name'].split('/')[1] == 'cache']
 if len(csv_file) != 0:
+    st.subheader("Diagnózis")
     csv_doc =pd.read_csv(io.StringIO(select_blob_file(blob_storage,'patient-documents',csv_file[0])), sep=';')
     formatted_csv = format_csv(csv_doc)
+    column_names = [col for col in formatted_csv.columns]
+    cols = st.columns((1, 4, 3, 2, 4, 4))
+    for idx in range(1, len(cols)):
+        cols[idx].caption(column_names[idx-1])
     for index, row in formatted_csv.iterrows():
-        col1, col2, col3, col4, col5, col6 = st.columns((1, 3, 2, 1, 3, 3))
+        col1, col2, col3, col4, col5, col6 = st.columns((1, 4, 3, 2, 4, 4))
         col1.write(index)
         col2.write(row['Diagnózis'])
         col3.write(row['Kezdete'])
