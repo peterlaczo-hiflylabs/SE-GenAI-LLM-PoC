@@ -84,7 +84,7 @@ def format_button_style():
     st.markdown(
     """
     <style>
-    button[kind="secondary"] {
+    button[kind="primary"] {
         background: none!important;
         border: none;
         padding: 0!important;
@@ -93,11 +93,11 @@ def format_button_style():
         cursor: pointer;
         border: none !important;
     }
-    button[kind="secondary"]:hover {
+    button[kind="primary"]:hover {
         text-decoration: none;
         color: black !important;
     }
-    button[kind="secondary"]:focus {
+    button[kind="primary"]:focus {
         outline: none !important;
         box-shadow: none !important;
         color: black !important;
@@ -106,9 +106,22 @@ def format_button_style():
     """,
     unsafe_allow_html=True,
 )
+    
+def document_displayer(session_state_data):
+    if session_state_data != None:
+        for element in files:
+            if element['name'].split('/')[-1] in session_state_data:
+                st.write(session_state_data.strip('[').replace(']',':'))
+                html_document = text_to_html((select_blob_file(blob_storage,'patient-documents',element)), element['name'])
+                st.markdown(html_document, unsafe_allow_html=True)
+                # with st.columns((8,1))[1]:
+                #     close_button = st.button("Close", use_container_width=True)
+                # if close_button:
+                #     session_state_data = None
+                break
 
 
-ids = set([file['name'].split('/')[0] for file in list_files_in_container(blob_storage, "patient-documents")])
+ids = sorted(set([file['name'].split('/')[0] for file in list_files_in_container(blob_storage, "patient-documents")]))
 selected_id = st.selectbox("Válaszd ki az azonosítót:", ids)
 # selected_id = '008359041'
 #### UPLOAD DOCS #####
@@ -159,8 +172,14 @@ if "messages" not in st.session_state:
 if "source_links" not in st.session_state:
     st.session_state.source_links = None
 
-if "html_table_name" not in st.session_state:
-    st.session_state.html_table_name = ""
+if "anamnezis_html_table_name" not in st.session_state:
+    st.session_state.anamnezis_html_table_name = ""
+
+if "gyogyszer_html_table_name" not in st.session_state:
+    st.session_state.gyogyszer_html_table_name = ""
+
+if "chat_html_table_name" not in st.session_state:
+    st.session_state.chat_html_table_name = ""
 
 
 # - - - - - - - - - - - - - - -
@@ -188,10 +207,12 @@ st.sidebar.markdown(
 WHOLE_DOC, input_tokens = concat_docs_count_tokens(docs, encoding)
 st.write('A paciens dokumentumainak tokenszáma: ' + str(len(input_tokens)))
 
+format_button_style()
+
 #showing "diagnozis" CSV
 csv_file = [file for file in files if file['name'].split('/')[1] == 'cache' and 'anamnezis_of' in file['name']]
 if len(csv_file) != 0:
-    st.subheader("Diagnózis")
+    st.subheader("Anamnézis szekció")
     csv_doc =pd.read_csv(io.StringIO(select_blob_file(blob_storage,'patient-documents',csv_file[0])), sep=';')
     formatted_csv = format_diagnosis_csv(csv_doc)
     column_names = swap_elements([col for col in formatted_csv.columns],3,4)
@@ -205,17 +226,17 @@ if len(csv_file) != 0:
         col3.write(row['Kezdete'])
         col4.write(row['BNO-10'])
         col5.write(row['BNO leírás'])
-        do_action = col6.button(row["Forrás(ok) "], key=f"diagnosis_btn_{index}", type="secondary")
+        do_action = col6.button(row["Forrás(ok) "], key=f"diagnosis_btn_{index}", type="primary")
         if do_action:
-            if row["Forrás(ok) "] != st.session_state.html_table_name:
-                st.session_state.html_table_name = row["Forrás(ok) "]
+            if row["Forrás(ok) "] != st.session_state.anamnezis_html_table_name:
+                st.session_state.anamnezis_html_table_name = row["Forrás(ok) "]
 
-format_button_style()
+document_displayer(st.session_state.anamnezis_html_table_name)
 
  #showing "gyogyszererzekenyseg" CSV
 csv_file = [file for file in files if file['name'].split('/')[1] == 'cache' and 'gyogyszererzekenyseg' in file['name']]
 if len(csv_file) != 0:
-    st.subheader("Gyógyszerallergia")
+    st.subheader("Gyógyszerérzékenység szekció")
     csv_doc =pd.read_csv(io.StringIO(select_blob_file(blob_storage,'patient-documents',csv_file[0])), sep=';')
     column_names = [col for col in csv_doc.columns]
     cols = st.columns((1, 2, 2))
@@ -225,15 +246,14 @@ if len(csv_file) != 0:
         col1, col2, col3 = st.columns((1, 2, 2))
         col1.write(index)
         col2.write(row[column_names[0]])
-        do_action = col3.button(row[column_names[1]], key=f"gyogyszer_btn_{index}", type="secondary")
+        do_action = col3.button(row[column_names[1]], key=f"gyogyszer_btn_{index}", type="primary")
         if do_action:
-            if row[column_names[1]] != st.session_state.html_table_name:
-                st.session_state.html_table_name = row[column_names[1]]
+            if row[column_names[1]] != st.session_state.gyogyszer_html_table_name:
+                st.session_state.gyogyszer_html_table_name = row[column_names[1]]
 
+document_displayer(st.session_state.gyogyszer_html_table_name)
 
-html_name_placeholder = st.empty()
-html_placeholder = st.empty()
-
+st.subheader("Anamnézis szekció")
 
 msg = st.chat_message('assistant')
 msg.write("Üdvözlöm! 👋 Tegyen fel kérdéseket a kiválasztott pácienssel kapcsolatban!")
@@ -246,7 +266,6 @@ for message in st.session_state.messages:
 
 # Good code under this 
 if QUERY := st.chat_input("Ide írja a kérdését"):
-
     # Display user message in chat message container
     with st.chat_message("user"):
         st.markdown(QUERY)
@@ -283,6 +302,7 @@ if QUERY := st.chat_input("Ide írja a kérdését"):
     # Add user and AI message to chat history
     st.session_state.messages.append({"role": "user", "content": QUERY})
     st.session_state.messages.append({"role": "assistant", "content": full_response})
+    st.session_state.chat_html_table_name = ""
 
 if len(st.session_state.messages) > 0:
     source_links = extract_text_between_brackets(st.session_state.messages[-1]['content'])
@@ -294,16 +314,10 @@ if len(st.session_state.messages) > 0:
             #st.write('A válasz generálásához az összes feltöltött dokumentum felhasználásra került.')
             for element_id in range(len(source_links)):
                 if st.button(source_links[element_id],key=f"expander_btn_{element_id}"):
-                    if source_links[element_id].split('-p')[0] != st.session_state.html_table_name:
-                        st.session_state.html_table_name = source_links[element_id].split('-p')[0]
+                    if source_links[element_id].split('-p')[0] != st.session_state.chat_html_table_name:
+                        st.session_state.chat_html_table_name = source_links[element_id].split('-p')[0]
         else:
             st.write("A válasz generálásához az alábbi, relevánsnak ítélt dokumentumok lettek felhasználva:")
             st.text(sources)
     
-if st.session_state.html_table_name != None:
-    for element in files:
-        if element['name'].split('/')[-1] in st.session_state.html_table_name:
-            html_name_placeholder.write(st.session_state.html_table_name.strip('[').replace(']',':'))
-            html_document = text_to_html((select_blob_file(blob_storage,'patient-documents',element)), element['name'])
-            html_placeholder.markdown(html_document, unsafe_allow_html=True)
-            break
+document_displayer(st.session_state.chat_html_table_name)
