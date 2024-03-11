@@ -110,7 +110,7 @@ def format_button_style():
 
 ids = set([file['name'].split('/')[0] for file in list_files_in_container(blob_storage, "patient-documents")])
 selected_id = st.selectbox("Válaszd ki az azonosítót:", ids)
-selected_id = '008359041'
+# selected_id = '008359041'
 #### UPLOAD DOCS #####
 docs = []
 #first filtering, current ID filter
@@ -137,11 +137,11 @@ if selected_files:
 if "previous_id" not in st.session_state:
     st.session_state.previous_id = selected_id
 
-# if selected_id != st.session_state.previous_id:
-#     st.session_state.previous_id = selected_id
-#     st.cache_data.clear()
-#     for key in st.session_state.keys():
-#         del st.session_state[key]
+if selected_id != st.session_state.previous_id:
+    st.session_state.previous_id = selected_id
+    st.cache_data.clear()
+    for key in st.session_state.keys():
+        del st.session_state[key]
 
 
 # - - - - - - - - - - - - - - - -
