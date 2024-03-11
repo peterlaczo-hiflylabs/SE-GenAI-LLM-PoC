@@ -38,14 +38,22 @@ encoding = tiktoken.get_encoding("cl100k_base")
 # TODO: change embedder to azure oai
 embedder = 'text-embedding-ada-002'
 MODEL = 'gpt-4-1106-preview'
+try:
+    account_name = str(os.environ['azure_name'])
+    key = str(os.environ['azure_key'])
+    blob_storage = connect_to_storage(account_name, key)
 
-account_name = str(os.environ['azure_name'])
-key = str(os.environ['azure_key'])
-blob_storage = connect_to_storage(account_name, key)
+    openai_api = str(os.environ['openai_api_key'])
+    openai.api_key = openai_api
+    os.environ["OPENAI_API_KEY"] = openai_api
+except:
+    account_name = str(os.getenv('azure_name'))
+    key = str(os.environ('azure_key'))
+    blob_storage = connect_to_storage(account_name, key)
 
-openai_api = str(os.environ['openai_api_key'])
-openai.api_key = openai_api
-os.environ["OPENAI_API_KEY"] = openai_api
+    openai_api = str(os.environ('openai_api_key'))
+    openai.api_key = openai_api
+    os.environ["OPENAI_API_KEY"] = openai_api
 
 def generate_embeddings(text):
     response = openai.Embedding.create(input=text, model = embedder)
