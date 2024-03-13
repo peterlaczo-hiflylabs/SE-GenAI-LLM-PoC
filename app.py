@@ -74,8 +74,13 @@ def retrieve_relevant_chunks(user_input, db, model):
 
     return sources
 
-if not check_password():
+if "authenticated" not in st.session_state:
+    st.session_state.authenticated = False
+
+if not st.session_state.authenticated and not check_password():
     st.stop()
+else:
+    st.session_state.authenticated = True
 
 ids = sorted(set([file['name'].split('/')[0] for file in list_files_in_container(blob_storage, "patient-documents")]))
 selected_id = st.selectbox("Válaszd ki az azonosítót:", ids)
@@ -108,10 +113,16 @@ if "previous_id" not in st.session_state:
 
 if selected_id != st.session_state.previous_id:
     st.session_state.previous_id = selected_id
+    is_authenticated = st.session_state.authenticated
     st.cache_data.clear()
     for key in st.session_state.keys():
         del st.session_state[key]
+    st.session_state.authenticated = is_authenticated
 
+
+st.title("Semmelweis X Hiflylabs")
+st.header("Semmelweis GenAI/LLM Anamnézis PoC")
+st.write("Készítette: Hiflylabs")
 
 # - - - - - - - - - - - - - - - -
 # Define Session state elements
@@ -137,14 +148,9 @@ if "gyogyszer_html_table_name" not in st.session_state:
 if "chat_html_table_name" not in st.session_state:
     st.session_state.chat_html_table_name = ""
 
-
 # - - - - - - - - - - - - - - -
 # Chat main part
 # - - - - - - - - - - - - - - -
-
-st.title("Semmelweis X Hiflylabs")
-st.header("Semmelweis GenAI/LLM Anamnézis PoC")
-st.write("Készítette: Hiflylabs")
 
 st.sidebar.image("img/semmelweis_logo_transparent.png", use_column_width=True)
 st.sidebar.title("Leírás")
@@ -187,8 +193,7 @@ if len(csv_file) != 0:
             if row["Forrás(ok) "] != st.session_state.anamnezis_html_table_name:
                 st.session_state.anamnezis_html_table_name = row["Forrás(ok) "]
 
-if st.expander("Adj visszajelzést"):
-    feedback(blob_storage, files, selected_id, csv_file[0])
+    block_feedback(blob_storage, files, selected_id, csv_file[0],"anamnezis")
 document_displayer(blob_storage, files, st.session_state.anamnezis_html_table_name)
 
  #showing "gyogyszererzekenyseg" CSV
@@ -209,6 +214,7 @@ if len(csv_file) != 0:
             if row[column_names[1]] != st.session_state.gyogyszer_html_table_name:
                 st.session_state.gyogyszer_html_table_name = row[column_names[1]]
 
+    block_feedback(blob_storage, files, selected_id, csv_file[0],"gyogyszer")
 document_displayer(blob_storage, files, st.session_state.gyogyszer_html_table_name)
 
 st.subheader("Chat szekció")
@@ -279,7 +285,6 @@ if len(st.session_state.messages) > 0:
             st.text(sources)
     
 document_displayer(blob_storage, files, st.session_state.chat_html_table_name)
-
 
 
 
