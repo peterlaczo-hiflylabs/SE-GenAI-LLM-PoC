@@ -76,20 +76,23 @@ def check_password():
     return False
 
 def block_feedback(blob_storage, files, selected_id, table, type):
-    timestamp = table['name'].split('/')[-1].split('_')[1]
+    timestamp = table['name'].split('/')[-1].split('_')[-1].split('.')[0]
     try:
         feedback_storage_source = [file for file in files if file['name'].split('/')[1] == 'cache' and f"{type}_feedbacks" in file['name'] and timestamp in file['name']][0]
         feedback_storage = pd.read_csv(io.StringIO(select_blob_file(blob_storage,'patient-documents',feedback_storage_source)), sep=';')
     except:
         feedback_storage = pd.DataFrame()
-    if st.checkbox("Visszajelzés adása", key=f"{type}_curr"):
+    if st.checkbox("Visszajelzés adása", key=f"{type}_curr", value=False):
+        original_table_csv = pd.read_csv(io.StringIO(select_blob_file(blob_storage,'patient-documents',table)), sep=';')
         feedback_name = st.text_input("Kérlek írd be a neved:", value="", key=f"{type}_name")
+        feedback_row_num = st.number_input("kérlek add meg a sor számát", key=f"{type}_num",min_value=0, max_value=len(original_table_csv))
         feedback_text = st.text_area("Kérlek írd be a visszajelzésed", value="",key=f"{type}_desc")
         if st.button("Beküldés", key=f"{type}_submitbtn"):
             feedback_storage = pd.concat([feedback_storage,pd.DataFrame([{
                 'név': feedback_name,
                 'dátum': datetime.datetime.now().strftime("%Y/%m/%d"),
                 'időpont': datetime.datetime.now().strftime("%H:%M:%S"),
+                'sor': feedback_row_num,
                 'leírás': feedback_text
             }], index=[0])],ignore_index=True)
             csv_string_buffer = io.StringIO()
@@ -102,7 +105,7 @@ def block_feedback(blob_storage, files, selected_id, table, type):
                 feedback_text = ""
             else:
                 st.write(error)
-    if st.checkbox("Korábbi visszajelzések megjelenítése",key=f"{type}_prev"):
+    if st.checkbox("Korábbi visszajelzések megjelenítése",key=f"{type}_prev", value=False):
         if len(feedback_storage)>0:
             st.table(feedback_storage)
         else:
