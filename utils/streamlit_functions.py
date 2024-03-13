@@ -76,16 +76,16 @@ def check_password():
     return False
 
 def block_feedback(blob_storage, files, selected_id, table, type):
-    timestamp = table['name'].split('/')[-1].strip(f"{selected_id}_anamnezis_of_").split('.')[0]
+    timestamp = table['name'].split('/')[-1].split('_')[1]
     try:
         feedback_storage_source = [file for file in files if file['name'].split('/')[1] == 'cache' and f"{type}_feedbacks" in file['name'] and timestamp in file['name']][0]
         feedback_storage = pd.read_csv(io.StringIO(select_blob_file(blob_storage,'patient-documents',feedback_storage_source)), sep=';')
     except:
         feedback_storage = pd.DataFrame()
     if st.checkbox("Visszajelzés adása", key=f"{type}_curr"):
-        feedback_name = st.text_input("Kérlek írd be a neved:", value="")
-        feedback_text = st.text_area("Kérlek írd be a visszajelzésed", value="")
-        if st.button("Beküldés"):
+        feedback_name = st.text_input("Kérlek írd be a neved:", value="", key=f"{type}_name")
+        feedback_text = st.text_area("Kérlek írd be a visszajelzésed", value="",key=f"{type}_desc")
+        if st.button("Beküldés", key=f"{type}_submitbtn"):
             feedback_storage = pd.concat([feedback_storage,pd.DataFrame([{
                 'név': feedback_name,
                 'dátum': datetime.datetime.now().strftime("%Y/%m/%d"),
