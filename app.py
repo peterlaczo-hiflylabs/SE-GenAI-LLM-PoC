@@ -1,11 +1,8 @@
-import hmac
 import io
-#import re
 import os
 import openai
 import tiktoken
 
-import numpy as np
 import pandas as pd
 import streamlit as st
 
@@ -188,7 +185,7 @@ if len(csv_file) != 0:
         col3.write(row['Kezdete'])
         col4.write(row['BNO-10'])
         col5.write(row['BNO leírás'])
-        do_action = col6.button(row["Forrás(ok) "], key=f"diagnosis_btn_{index}", type="primary")
+        do_action = col6.button("Forrás", key=f"diagnosis_btn_{index}", type="primary")
         if do_action:
             if row["Forrás(ok) "] != st.session_state.anamnezis_html_table_name:
                 st.session_state.anamnezis_html_table_name = row["Forrás(ok) "]
@@ -209,7 +206,7 @@ if len(csv_file) != 0:
         col1, col2, col3 = st.columns((1, 2, 2))
         col1.write(index)
         col2.write(row[column_names[0]])
-        do_action = col3.button(row[column_names[1]], key=f"gyogyszer_btn_{index}", type="primary")
+        do_action = col3.button("Forrás", key=f"gyogyszer_btn_{index}", type="primary")
         if do_action:
             if row[column_names[1]] != st.session_state.gyogyszer_html_table_name:
                 st.session_state.gyogyszer_html_table_name = row[column_names[1]]
