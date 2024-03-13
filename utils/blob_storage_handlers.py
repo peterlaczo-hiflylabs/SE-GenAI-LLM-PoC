@@ -1,3 +1,4 @@
+import os
 from azure.storage.blob import BlobServiceClient
 
 
@@ -14,3 +15,11 @@ def select_blob_file(blob_service_client, container_name, blob):
     client = blob_service_client.get_container_client(container_name)
     blob_file = client.get_blob_client(blob)
     return (blob_file.download_blob()).readall().decode("utf-8")
+
+def upload_to_blob_storage(blob_service_client, container_name, blob_path, content):
+    try:
+        blob_client = blob_service_client.get_blob_client(container=container_name, blob=blob_path)
+        blob_client.upload_blob(content, overwrite=True)
+        return True, None
+    except Exception as e:
+        return False, str(e)

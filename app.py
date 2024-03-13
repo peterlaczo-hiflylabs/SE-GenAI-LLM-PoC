@@ -1,3 +1,4 @@
+import hmac
 import io
 #import re
 import os
@@ -11,12 +12,13 @@ import streamlit as st
 from copy import deepcopy
 from dotenv import load_dotenv
 from utils.blob_storage_handlers import *
-from utils.prompts import system_message, default_system_prompt, question_message
+from utils.prompts import *
 from utils.CSV_formatter import format_diagnosis_csv
+from utils.streamlit_functions import *
+from io import StringIO
 
 from utilities import (
     extract_text_between_brackets,
-    text_to_html,
     load_txt,
     create_db,
     concat_docs_count_tokens,
@@ -39,22 +41,14 @@ encoding = tiktoken.get_encoding("cl100k_base")
 # TODO: change embedder to azure oai
 embedder = 'text-embedding-ada-002'
 MODEL = 'gpt-4-1106-preview'
-try:
-    account_name = str(os.environ['azure_name'])
-    key = str(os.environ['azure_key'])
-    blob_storage = connect_to_storage(account_name, key)
 
-    openai_api = str(os.environ['openai_api_key'])
-    openai.api_key = openai_api
-    os.environ["OPENAI_API_KEY"] = openai_api
-except:
-    account_name = str(os.getenv('azure_name'))
-    key = str(os.environ('azure_key'))
-    blob_storage = connect_to_storage(account_name, key)
+account_name = str(os.environ['azure_name'])
+key = str(os.environ['azure_key'])
+blob_storage = connect_to_storage(account_name, key)
 
-    openai_api = str(os.environ('openai_api_key'))
-    openai.api_key = openai_api
-    os.environ["OPENAI_API_KEY"] = openai_api
+openai_api = str(os.environ['openai_api_key'])
+openai.api_key = openai_api
+os.environ["OPENAI_API_KEY"] = openai_api
 
 def generate_embeddings(text):
     response = openai.Embedding.create(input=text, model = embedder)
@@ -80,46 +74,8 @@ def retrieve_relevant_chunks(user_input, db, model):
 
     return sources
 
-def format_button_style():
-    st.markdown(
-    """
-    <style>
-    button[kind="primary"] {
-        background: none!important;
-        border: none;
-        padding: 0!important;
-        color: black !important;
-        text-decoration: none;
-        cursor: pointer;
-        border: none !important;
-    }
-    button[kind="primary"]:hover {
-        text-decoration: none;
-        color: black !important;
-    }
-    button[kind="primary"]:focus {
-        outline: none !important;
-        box-shadow: none !important;
-        color: black !important;
-    }
-    </style>
-    """,
-    unsafe_allow_html=True,
-)
-    
-def document_displayer(session_state_data):
-    if session_state_data != None:
-        for element in files:
-            if element['name'].split('/')[-1] in session_state_data:
-                st.write(session_state_data.strip('[').replace(']',':'))
-                html_document = text_to_html((select_blob_file(blob_storage,'patient-documents',element)), element['name'])
-                st.markdown(html_document, unsafe_allow_html=True)
-                # with st.columns((8,1))[1]:
-                #     close_button = st.button("Close", use_container_width=True)
-                # if close_button:
-                #     session_state_data = None
-                break
-
+if not check_password():
+    st.stop()
 
 ids = sorted(set([file['name'].split('/')[0] for file in list_files_in_container(blob_storage, "patient-documents")]))
 selected_id = st.selectbox("Válaszd ki az azonosítót:", ids)
@@ -185,7 +141,7 @@ if "chat_html_table_name" not in st.session_state:
 # - - - - - - - - - - - - - - -
 # Chat main part
 # - - - - - - - - - - - - - - -
-    
+
 st.title("Semmelweis X Hiflylabs")
 st.header("Semmelweis GenAI/LLM Anamnézis PoC")
 st.write("Készítette: Hiflylabs")
@@ -231,7 +187,9 @@ if len(csv_file) != 0:
             if row["Forrás(ok) "] != st.session_state.anamnezis_html_table_name:
                 st.session_state.anamnezis_html_table_name = row["Forrás(ok) "]
 
-document_displayer(st.session_state.anamnezis_html_table_name)
+if st.expander("Adj visszajelzést"):
+    feedback(blob_storage, files, selected_id, csv_file[0])
+document_displayer(blob_storage, files, st.session_state.anamnezis_html_table_name)
 
  #showing "gyogyszererzekenyseg" CSV
 csv_file = [file for file in files if file['name'].split('/')[1] == 'cache' and 'gyogyszererzekenyseg' in file['name']]
@@ -251,9 +209,9 @@ if len(csv_file) != 0:
             if row[column_names[1]] != st.session_state.gyogyszer_html_table_name:
                 st.session_state.gyogyszer_html_table_name = row[column_names[1]]
 
-document_displayer(st.session_state.gyogyszer_html_table_name)
+document_displayer(blob_storage, files, st.session_state.gyogyszer_html_table_name)
 
-st.subheader("Anamnézis szekció")
+st.subheader("Chat szekció")
 
 msg = st.chat_message('assistant')
 msg.write("Üdvözlöm! 👋 Tegyen fel kérdéseket a kiválasztott pácienssel kapcsolatban!")
@@ -313,11 +271,28 @@ if len(st.session_state.messages) > 0:
         if len(input_tokens) <= MODEL_INPUT_TOKEN_SUMM_LIMIT:
             #st.write('A válasz generálásához az összes feltöltött dokumentum felhasználásra került.')
             for element_id in range(len(source_links)):
-                if st.button(source_links[element_id],key=f"expander_btn_{element_id}"):
+                if st.button(source_links[element_id],key=f"expander_btn_{element_id}", type="primary"):
                     if source_links[element_id].split('-p')[0] != st.session_state.chat_html_table_name:
                         st.session_state.chat_html_table_name = source_links[element_id].split('-p')[0]
         else:
             st.write("A válasz generálásához az alábbi, relevánsnak ítélt dokumentumok lettek felhasználva:")
             st.text(sources)
     
-document_displayer(st.session_state.chat_html_table_name)
+document_displayer(blob_storage, files, st.session_state.chat_html_table_name)
+
+
+
+
+
+
+#auto csv testing
+# results = [doc.metadata['source'].split("\\")[-1] + "-page-" + str(doc.metadata['page'] )+ ": " + doc.page_content.replace("\n", "").replace("\r", "") for doc in docs]
+# sources = "\n".join(results)   
+# messages =[
+#     {"role": "system", "content" : "You are a helpful assistant helping people answer their questions related to documents."},
+#     {"role": "user", "content": system_message.format(system_prompt = default_system_prompt, sources=sources)},
+#     {"role": "user", "content": question_message.format(question=anamenesis_generator)}
+#     ]
+# full_response = generate_response(messages, MODEL, TEMPERATURE, MAX_TOKENS).replace('N/A','')
+# csv_df = pd.read_csv(StringIO("\n".join(full_response)), sep=";")
+# csv_df.to_csv(f"{selected_id}_anamnezis_of.csv", index=None)

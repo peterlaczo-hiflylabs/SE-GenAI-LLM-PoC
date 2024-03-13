@@ -15,3 +15,6 @@ question_message = """
 
 Assistant: 
 """
+
+anamenesis_generator = """Sorold fel a páciens összes eddigi diagnózisát az első előfordulási időpontjával együtt, ha az elérhető. Ha tudod, társítsd a diagnózisokhoz a megfelelő, WHO által kiadott ICD-10 (magyarul BNO-10) kódot is. Példa: "Diagnózis1; 1999-01-01; A00; [Forrás1]". A válaszod egy CSV formátumú (separator: ";", endline: "\n") táblázat legyen, az alábbi oszlopokkal: "Diagnózis", "Kezdete", "BNO-10", "Forrás(ok)".
+"""
