@@ -86,7 +86,7 @@ def block_feedback(blob_storage, files, selected_id, table, type):
     if st.checkbox("Visszajelzés adása", key=f"{type}_curr", value=False):
         original_table_csv = pd.read_csv(io.StringIO(select_blob_file(blob_storage,'patient-documents',table)), sep=';')
         feedback_name = st.text_input("Kérlek írd be a neved:", value="", key=f"{type}_name")
-        feedback_row_num = st.number_input("kérlek add meg a sor számát", key=f"{type}_num",min_value=0, max_value=len(original_table_csv))
+        feedback_row_num = st.number_input("kérlek add meg a sor számát", key=f"{type}_num",min_value=0, max_value=len(original_table_csv)-1)
         feedback_text = st.text_area("Kérlek írd be a visszajelzésed", value="",key=f"{type}_desc")
         if st.button("Beküldés", key=f"{type}_submitbtn"):
             feedback_storage = pd.concat([feedback_storage,pd.DataFrame([{

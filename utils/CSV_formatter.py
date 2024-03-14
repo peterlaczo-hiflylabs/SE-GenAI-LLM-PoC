@@ -37,6 +37,7 @@ def insert_bno_description(gen_bno, bno_table):
 def format_diagnosis_csv(gen_csv: pd.DataFrame):
     bno_table = pd.read_excel('BNOTORZS.xlsx')
     # gen_csv = split_listed_bnos(gen_csv)
+    # gen_csv['Kezdete'] = gen_csv.apply(lambda x: x['Forrás(ok)'].split('_')[1] if str(x['Kezdete']) == 'nan' else x['Kezdete'],axis= 1)
     gen_csv['BNO-10']= gen_csv['BNO-10'].apply(lambda x: "" if pd.isna(x) else x)
     gen_csv['BNO leírás'] = gen_csv['BNO-10'].apply(lambda x: insert_bno_description(x,bno_table))
     return gen_csv
