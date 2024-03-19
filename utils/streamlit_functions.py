@@ -72,6 +72,7 @@ def document_displayer(blob_storage, selected_container, session_state, type):
                     st.markdown(html_document, unsafe_allow_html=True)
                     break
 
+
 def password_entered():
     """Checks whether a password entered by the user is correct."""
     if hmac.compare_digest(st.session_state["password"], os.environ["streamlit_password"]):

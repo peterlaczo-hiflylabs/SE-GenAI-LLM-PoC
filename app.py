@@ -114,6 +114,9 @@ def upload_table(selected_id, selected_container, generator, type, input_tokens)
 def talk_to_your_docs():
     if "selected_id" not in st.session_state:
         st.session_state.selected_id = ""
+
+    if "selected_container" not in st.session_state:
+        st.session_state.selected_container = ""
     
     if "docs" not in st.session_state:
         st.session_state.docs = []
@@ -125,16 +128,16 @@ def talk_to_your_docs():
         st.session_state.files = []
 
     # - - - - - - - - - - - - - - - -
-    # Select id
+    # Select container and id
     # - - - - - - - - - - - - - - - -
 
     # start = time.time()
     selected_container = st.selectbox("Válassza ki a használni kívánt állományt:", [container['name'] for container in blob_storage.list_containers()])
     ids = sorted(set([file['name'].split('/')[0] for file in list_files_in_container(blob_storage, selected_container)]))
     selected_id = st.selectbox("Válassza ki az azonosítót:", ids)
-    # st.info(f"selected id deltatime:{time.time()- start:.2f} sec")
+    # st.info(f"selected container + id deltatime:{time.time()- start:.2f} sec")
     # start = time.time()
-    if selected_id != st.session_state.selected_id:
+    if selected_container != st.session_state.selected_container or selected_id != st.session_state.selected_id:
         #### clear cache ####
         is_authenticated = st.session_state.authenticated
         st.cache_data.clear()
@@ -142,6 +145,7 @@ def talk_to_your_docs():
             del st.session_state[key]
         st.session_state.authenticated = is_authenticated
         st.session_state.selected_id = selected_id
+        st.session_state.selected_container = selected_container
         #### UPLOAD DOCS #####
         docs = []
         #first filtering, current ID filter
@@ -157,7 +161,7 @@ def talk_to_your_docs():
             #### STORE DOCS IN VECTOR DATABASE
             embeddings, st.session_state.db = create_db(docs)
         st.session_state.docs = docs
-    st.session_state.files = [file for file in list_files_in_container(blob_storage, selected_container) if len(file['name'].split('/')) > 2 and selected_id in file['name'].split('/')[-1]]
+        st.session_state.files = [file for file in list_files_in_container(blob_storage, selected_container) if len(file['name'].split('/')) > 2 and selected_id in file['name'].split('/')[-1]]
 
     # st.info(f"generating database deltatime:{time.time()- start:.2f} sec")
     # start = time.time()
@@ -213,13 +217,10 @@ def talk_to_your_docs():
     st.subheader("Anamnézis szekció")
     if st.button("Tábla újragenerálása", key = "anam_table_gen_btn"):
         upload_table(selected_id,selected_container, anam_gen_system_prompt, 'anam', input_tokens)
-    # st.info(len(st.session_state.files))
     csv_file = [file for file in st.session_state.files if file['name'].split('/')[1] == 'cache' and 'anamnezis_of' in file['name']]
     if len(csv_file) == 0:
         upload_table(selected_id, selected_container, anam_gen_system_prompt, 'anam', input_tokens)
         csv_file = [file for file in st.session_state.files if file['name'].split('/')[1] == 'cache' and 'anamnezis_of' in file['name']]
-        # st.info([file['name'] for file in st.session_state.files])
-        # st.info(f"{len(csv_file)} {csv_file}")
     csv_doc =pd.read_csv(io.StringIO(select_blob_file(blob_storage,selected_container,csv_file[-1])), sep=';')
     formatted_csv = format_diagnosis_csv(csv_doc)
     column_names = swap_elements([col for col in formatted_csv.columns],3,4)
@@ -239,6 +240,7 @@ def talk_to_your_docs():
                 st.session_state.anam_row_index = index + 1
             if row[column_names[-1]] != st.session_state.anam_html_table_name:
                 st.session_state.anam_html_table_name = row[column_names[-1]]
+    # st.info(st.session_state.anam_html_table_name)
     
     #### feedback and source display ####
     block_feedback(blob_storage, selected_id, csv_file[-1], selected_container, st.session_state, "anam")
