@@ -73,12 +73,15 @@ def retrieve_relevant_chunks(user_input, db, model):
     return sources
 
 def table_string_generator(docs, generator, input_tokens) -> str:
+    st.info(len(input_tokens))
     if len(input_tokens) <= MODEL_INPUT_TOKEN_SUMM_LIMIT:
         print('include all documents')
         results = [doc.metadata['source'].split("\\")[-1] + "-page-" + str(doc.metadata['page'] )+ ": " + doc.page_content.replace("\n", "").replace("\r", "") for doc in docs]
         sources = "\n".join(results)   
     else:
-        sources = retrieve_relevant_chunks(generator,st.session_state.db, MODEL)
+        # sources = retrieve_relevant_chunks(generator,st.session_state.db, MODEL)
+        results = [doc.metadata['source'].split("\\")[-1] + "-page-" + str(doc.metadata['page'] )+ ": " + doc.page_content.replace("\n", "").replace("\r", "") for doc in st.session_state.docs]
+        sources = "\n".join(results)  
     messages =[
     {"role": "system", "content" : "You are a helpful assistant helping people answer their questions related to documents."},
     {"role": "user", "content": table_gen_system_message.format(system_prompt = generator, sources=sources)}
@@ -92,8 +95,9 @@ def upload_table(selected_id, selected_container, generator, type, input_tokens)
     if type == "gyogyszer":
         for uploaded_file in st.session_state.files:
             txt_doc_chunks = load_txt(select_blob_file(blob_storage,selected_container,uploaded_file),filename=uploaded_file['name'].split('/')[-1])
-            gyogyszer_docs.extend(txt_doc_chunks) 
-        generated_text = table_string_generator(gyogyszer_docs, generator, input_tokens)
+            gyogyszer_docs.extend(txt_doc_chunks)
+        WHOLE_DOC, gyogyszer_input_tokens = concat_docs_count_tokens(gyogyszer_docs, encoding)
+        generated_text = table_string_generator(gyogyszer_docs, generator, gyogyszer_input_tokens)
     else:
         generated_text = table_string_generator(st.session_state.docs, generator, input_tokens)
     if generated_text != "":
@@ -107,7 +111,7 @@ def upload_table(selected_id, selected_container, generator, type, input_tokens)
         st.session_state.files = [file for file in list_files_in_container(blob_storage, selected_container) if len(file['name'].split('/')) > 2 and selected_id in file['name'].split('/')[-1]]
         return True
     else:
-        st.write("Sikertelen generálás")
+        st.write("Nem található releváns információ")
         return False
 
 

@@ -40,5 +40,5 @@ def format_diagnosis_csv(gen_csv: pd.DataFrame):
     # gen_csv['Kezdete'] = gen_csv.apply(lambda x: x['Forrás(ok)'].split('_')[1] if str(x['Kezdete']) == 'nan' else x['Kezdete'],axis= 1)
     gen_csv['BNO-10']= gen_csv['BNO-10'].apply(lambda x: "" if pd.isna(x) else x)
     gen_csv['BNO leírás'] = gen_csv['BNO-10'].apply(lambda x: insert_bno_description(x,bno_table))
-    gen_csv.sort_values(["Kezdete", "Diagnózis"])
+    gen_csv.drop_duplicates(subset='Diagnózis',keep='first').sort_values(["Kezdete", "Diagnózis"])
     return gen_csv
