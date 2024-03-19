@@ -73,8 +73,13 @@ def retrieve_relevant_chunks(user_input, db, model):
 
     return sources
 
-def table_string_generator(docs, generator) -> str:
-    sources = retrieve_relevant_chunks(generator,st.session_state.db, MODEL)
+def table_string_generator(docs, generator, input_tokens) -> str:
+    if len(input_tokens) <= MODEL_INPUT_TOKEN_SUMM_LIMIT:
+        print('include all documents')
+        results = [doc.metadata['source'].split("\\")[-1] + "-page-" + str(doc.metadata['page'] )+ ": " + doc.page_content.replace("\n", "").replace("\r", "") for doc in docs]
+        sources = "\n".join(results)   
+    else:
+        sources = retrieve_relevant_chunks(generator,st.session_state.db, MODEL)
     messages =[
     {"role": "system", "content" : "You are a helpful assistant helping people answer their questions related to documents."},
     {"role": "user", "content": table_gen_system_message.format(system_prompt = generator, sources=sources)}
@@ -82,22 +87,25 @@ def table_string_generator(docs, generator) -> str:
     full_response = generate_response(messages, MODEL, TEMPERATURE, MAX_TOKENS)
     return full_response.replace('; ',';') if len(full_response.split(";")) > 1 else ""
 
-def upload_table(docs, selected_id, generator, type):
+def upload_table(selected_id, generator, type, input_tokens):
     timestamp = datetime.datetime.now().strftime( "%Y%m%d%H%M%S")
     gyogyszer_docs = []
     if type == "gyogyszer":
         for uploaded_file in st.session_state.files:
             txt_doc_chunks = load_txt(select_blob_file(blob_storage,'patient-documents',uploaded_file),filename=uploaded_file['name'].split('/')[-1])
             gyogyszer_docs.extend(txt_doc_chunks) 
-        generated_text = table_string_generator(gyogyszer_docs, generator)
+        generated_text = table_string_generator(gyogyszer_docs, generator, input_tokens)
     else:
-        generated_text = table_string_generator(docs, generator)
+        generated_text = table_string_generator(st.session_state.docs, generator, input_tokens)
     if generated_text != "":
         match type:
             case "anam":
                 upload_to_blob_storage(blob_storage,"patient-documents",f"{selected_id}/cache/{selected_id}_anamnezis_of_{timestamp}.csv",generated_text)
+                st.session_state.anam_row_index = ""
             case "gyogyszer":
                 upload_to_blob_storage(blob_storage,"patient-documents",f"{selected_id}/cache/{selected_id}_gyogyszererzekenyseg_{timestamp}.csv",generated_text)
+                st.session_state.gyogyszer_row_index = ""
+        st.session_state.files = [file for file in list_files_in_container(blob_storage, "patient-documents") if len(file['name'].split('/')) > 2 and selected_id in file['name'].split('/')[-1]]
         return True
     else:
         st.write("Sikertelen generálás")
@@ -127,6 +135,7 @@ def talk_to_your_docs():
     # st.info(f"selected id deltatime:{time.time()- start:.2f} sec")
     # start = time.time()
     if selected_id != st.session_state.selected_id:
+        #### clear cache ####
         is_authenticated = st.session_state.authenticated
         st.cache_data.clear()
         for key in st.session_state.keys():
@@ -170,8 +179,8 @@ def talk_to_your_docs():
     if "source_links" not in st.session_state:
         st.session_state.source_links = None
 
-    if "anamnezis_html_table_name" not in st.session_state:
-        st.session_state.anamnezis_html_table_name = ""
+    if "anam_html_table_name" not in st.session_state:
+        st.session_state.anam_html_table_name = ""
 
     if "gyogyszer_html_table_name" not in st.session_state:
         st.session_state.gyogyszer_html_table_name = ""
@@ -218,11 +227,11 @@ def talk_to_your_docs():
 
     st.subheader("Anamnézis szekció")
     if st.button("Tábla újragenerálása", key = "anam_table_gen_btn"):
-        upload_table(st.session_state.docs, selected_id, anam_gen_system_prompt, 'anam')
+        upload_table(selected_id, anam_gen_system_prompt, 'anam', input_tokens)
     # st.info(len(st.session_state.files))
     csv_file = [file for file in st.session_state.files if file['name'].split('/')[1] == 'cache' and 'anamnezis_of' in file['name']]
     if len(csv_file) == 0:
-        upload_table(st.session_state.docs, selected_id, anam_gen_system_prompt, 'anam')
+        upload_table(selected_id, anam_gen_system_prompt, 'anam', input_tokens)
         csv_file = [file for file in st.session_state.files if file['name'].split('/')[1] == 'cache' and 'anamnezis_of' in file['name']]
         # st.info([file['name'] for file in st.session_state.files])
         # st.info(f"{len(csv_file)} {csv_file}")
@@ -243,12 +252,12 @@ def talk_to_your_docs():
         if do_action:
             if index + 1 != st.session_state.anam_row_index:
                 st.session_state.anam_row_index = index + 1
-            if row[column_names[-1]] != st.session_state.anamnezis_html_table_name:
-                st.session_state.anamnezis_html_table_name = row[column_names[-1]]
+            if row[column_names[-1]] != st.session_state.anam_html_table_name:
+                st.session_state.anam_html_table_name = row[column_names[-1]]
     
     #### feedback and source display ####
-    block_feedback(blob_storage, st.session_state.files, selected_id, csv_file[-1], "anamnezis", st.session_state.anam_row_index)
-    document_displayer(blob_storage, st.session_state.files, st.session_state.anamnezis_html_table_name, st.session_state.anam_row_index)
+    block_feedback(blob_storage, selected_id, csv_file[-1], st.session_state, "anam")
+    document_displayer(blob_storage, st.session_state, "anam")
 
     # st.info(f"anam table display deltatime:{time.time()- start:.2f} sec")
     # start = time.time()
@@ -259,11 +268,11 @@ def talk_to_your_docs():
     st.subheader("Gyógyszerérzékenység szekció")
     show_table = True
     if st.button("Tábla újragenerálása", key = "gyogyszer_table_gen_btn"):
-        show_table = upload_table(st.session_state.docs, selected_id, gyogyszer_gen_system_prompt, 'gyogyszer')
+        show_table = upload_table(selected_id, gyogyszer_gen_system_prompt, 'gyogyszer', input_tokens)
 
     csv_file = [file for file in st.session_state.files if file['name'].split('/')[1] == 'cache' and 'gyogyszererzekenyseg' in file['name']]
     if len(csv_file) == 0:
-        show_table = upload_table(st.session_state.docs, selected_id, gyogyszer_gen_system_prompt, 'gyogyszer')
+        show_table = upload_table(selected_id, gyogyszer_gen_system_prompt, 'gyogyszer', input_tokens)
         csv_file = [file for file in st.session_state.files if file['name'].split('/')[1] == 'cache' and 'gyogyszererzekenyseg' in file['name']]
     if show_table:
         csv_doc =pd.read_csv(io.StringIO(select_blob_file(blob_storage,'patient-documents',csv_file[-1])), sep=';')
@@ -286,8 +295,8 @@ def talk_to_your_docs():
                     st.session_state.gyogyszer_html_table_name = ""
 
         #### feedback and source display ####
-        block_feedback(blob_storage, st.session_state.files, selected_id, csv_file[-1],"gyogyszer", st.session_state.gyogyszer_row_index)
-        document_displayer(blob_storage, st.session_state.files, st.session_state.gyogyszer_html_table_name, st.session_state.gyogyszer_row_index)
+        block_feedback(blob_storage, selected_id, csv_file[-1], st.session_state, "gyogyszer")
+        document_displayer(blob_storage, st.session_state, "gyogyszer")
 
     # st.info(f"gyogyszer table display deltatime:{time.time()- start:.2f} sec")
     # start = time.time()
@@ -392,8 +401,8 @@ def app_main():
         st.session_state.authenticated = True
 
     page_names_to_funcs = {
-    "Talk to your document":talk_to_your_docs
-    # "Dokumentum feltöltés": upload_file
+    "Talk to your document":talk_to_your_docs,
+    "Dokumentum feltöltés": upload_file
     }
 
     st.sidebar.image("img/semmelweis_logo_transparent.png", use_column_width=True)
