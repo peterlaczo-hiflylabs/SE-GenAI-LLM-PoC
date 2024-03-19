@@ -222,7 +222,7 @@ def talk_to_your_docs():
     # st.info(len(st.session_state.files))
     csv_file = [file for file in st.session_state.files if file['name'].split('/')[1] == 'cache' and 'anamnezis_of' in file['name']]
     if len(csv_file) == 0:
-        # upload_table(st.session_state.docs, selected_id, anam_gen_system_prompt, 'anam')
+        upload_table(st.session_state.docs, selected_id, anam_gen_system_prompt, 'anam')
         csv_file = [file for file in st.session_state.files if file['name'].split('/')[1] == 'cache' and 'anamnezis_of' in file['name']]
         # st.info([file['name'] for file in st.session_state.files])
         # st.info(f"{len(csv_file)} {csv_file}")
@@ -257,6 +257,7 @@ def talk_to_your_docs():
     # - - - - - - - - - - - - - - - -
 
     st.subheader("Gyógyszerérzékenység szekció")
+    show_table = True
     if st.button("Tábla újragenerálása", key = "gyogyszer_table_gen_btn"):
         show_table = upload_table(st.session_state.docs, selected_id, gyogyszer_gen_system_prompt, 'gyogyszer')
 
