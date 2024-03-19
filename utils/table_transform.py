@@ -57,7 +57,6 @@ def format_table(df_raw, blob_storage, container_name):
 
     df_merged = df_melt.groupby(['NPI','ADMIT_DATE','CASE_NO','CASE_TYPE','DEPT','DESCR'])[['TEXT']].agg("\n\n".join).reset_index(level=-1)
 
-    #creating all folder
     for i in df_merged.index:
         # Get metadata
         npi = i[0]
@@ -70,7 +69,6 @@ def format_table(df_raw, blob_storage, container_name):
         text = df_merged.loc[i, 'TEXT']
         header = f'ZÁRÓJELENTÉS\nPáciens: {npi} | Rögzítési dátum: {admit_date} | Dokumentum: {case_no} | Osztály: {department} ({dept})\n\n'
         file_content = "\n".join([header, text])
-        #UPLOAD TO SOMEWHERE I DONT KNOW WHERE {?}/{npi}/src/all/{fname}
         upload_to_blob_storage(blob_storage,container_name, f"{npi}/src/all/{fname}", file_content)
     
     df_anm_all = df_melt[df_melt['TX_TYPE'] == 'ANM'].groupby(['NPI'])[['VALUE']].agg("\n\n".join)
@@ -80,8 +78,7 @@ def format_table(df_raw, blob_storage, container_name):
         # Get data
         file_content = df_anm_all.loc[i, 'VALUE']
         fname = f'{i}_ANM_MERGED.txt'
-        #UPLOAD TO SOMEWHERE I DONT KNOW WHERE {?}/{i}/src/merged/{fname}
-        upload_to_blob_storage(blob_storage, container_name, f"{npi}/src/merged/{fname}", file_content)
+        upload_to_blob_storage(blob_storage, container_name, f"{i}/src/merged/{fname}", file_content)
 
     df_epd_all = df_melt[df_melt['TX_TYPE'] == 'EPD'].groupby(['NPI'])[['VALUE']].agg("\n\n".join)
 
@@ -89,8 +86,7 @@ def format_table(df_raw, blob_storage, container_name):
         # Get data
         file_content = df_epd_all.loc[i, 'VALUE']
         fname = f'{i}_EPD_MERGED.txt'
-        #UPLOAD TO SOMEWHERE I DONT KNOW WHERE {?}/{i}/src/merged/{fname}
-        upload_to_blob_storage(blob_storage, container_name, f"{npi}/src/merged/{fname}", file_content)
+        upload_to_blob_storage(blob_storage, container_name, f"{i}/src/merged/{fname}", file_content)
 
     df_melt['FINAL_TEXT'] = df_melt.apply(lambda row: row['TEXT'] if row['TX_TYPE'] == 'ANM' else row['TEXT2'], axis=1)
 
@@ -107,5 +103,4 @@ def format_table(df_raw, blob_storage, container_name):
         dept = i[4]
         fname = f'{npi}_{admit_date}_{case_no}_{case_type}_{dept}_filtered.txt'
         file_content = df_merged_filtered.loc[i, 'FINAL_TEXT']
-        #UPLOAD TO SOMEWHERE I DONT KNOW WHERE {?}/{npi}/src/filtered/{fname}
         upload_to_blob_storage(blob_storage,container_name, f"{npi}/src/filtered/{fname}", file_content)

@@ -49,7 +49,7 @@ def format_button_style():
         unsafe_allow_html=True,
     )
 
-def document_displayer(blob_storage, session_state, type):
+def document_displayer(blob_storage, selected_container, session_state, type):
     match type:
         case "anam":
             session_state_data = session_state.anam_html_table_name
@@ -57,6 +57,9 @@ def document_displayer(blob_storage, session_state, type):
         case "gyogyszer":
             session_state_data = session_state.gyogyszer_html_table_name
             row_num = session_state.gyogyszer_row_index
+        case "chat":
+            session_state_data = session_state.chat_html_table_name
+            row_num = ""
     if session_state_data != None and session_state_data != "":
         with st.expander("Kiválasztott dokumentum"):
             for element in session_state.files:
@@ -65,7 +68,7 @@ def document_displayer(blob_storage, session_state, type):
                         st.write(session_state_data.replace('[', f"{row_num}. sor; ").replace(']',':'))
                     else:
                         st.write(session_state_data.strip('[').replace(']',':'))
-                    html_document = text_to_html((select_blob_file(blob_storage,'patient-documents',element)), element['name'])
+                    html_document = text_to_html((select_blob_file(blob_storage, selected_container ,element)), element['name'])
                     st.markdown(html_document, unsafe_allow_html=True)
                     break
 
@@ -92,7 +95,7 @@ def check_password():
         st.error("Password incorrect")
     return False
 
-def block_feedback(blob_storage, selected_id, table, session_state, type):
+def block_feedback(blob_storage, selected_id, table, selected_container, session_state, type):
     timestamp = table['name'].split('/')[-1].split('_')[-1].split('.')[0]
     match type:
         case "anam":
@@ -101,7 +104,7 @@ def block_feedback(blob_storage, selected_id, table, session_state, type):
             row_num = session_state.gyogyszer_row_index
     try:
         feedback_storage_source = [file for file in session_state.files if file['name'].split('/')[1] == 'cache' and f"{type}_feedbacks" in file['name'] and timestamp in file['name']][0]
-        feedback_storage = pd.read_csv(io.StringIO(select_blob_file(blob_storage,'patient-documents',feedback_storage_source)), sep=';')
+        feedback_storage = pd.read_csv(io.StringIO(select_blob_file(blob_storage, selected_container,feedback_storage_source)), sep=';')
     except:
         feedback_storage = pd.DataFrame()
     if st.checkbox("Visszajelzés adása", key=f"{type}_curr", value=False):
@@ -131,7 +134,7 @@ def block_feedback(blob_storage, selected_id, table, session_state, type):
             csv_string_buffer = io.StringIO()
             feedback_storage.to_csv(csv_string_buffer, index=False, sep=';')
             csv_string = csv_string_buffer.getvalue()
-            success, error = upload_to_blob_storage(blob_storage,"patient-documents",f"{selected_id}/cache/{selected_id}_{timestamp}_{type}_feedbacks.csv",csv_string)
+            success, error = upload_to_blob_storage(blob_storage, selected_container,f"{selected_id}/cache/{selected_id}_{timestamp}_{type}_feedbacks.csv",csv_string)
             if success:
                 st.write("FILE UPLOADED")
                 feedback_name = ""
