@@ -141,7 +141,7 @@ def talk_to_your_docs():
 
     # start = time.time()
     selected_container = st.selectbox("Válassza ki a használni kívánt állományt:", st.session_state.container_list)
-    if selected_container != st.session_state.container_list:
+    if selected_container != st.session_state.selected_container:
         ids = set([file['name'].split('/')[0] for file in list_files_in_container(blob_storage, selected_container)])
         st.session_state.id_list = sorted(ids)
     selected_id = st.selectbox("Válassza ki az azonosítót:", st.session_state.id_list)
@@ -259,7 +259,6 @@ def talk_to_your_docs():
                     st.session_state.anam_row_index = index + 1
                 if row[column_names[5]] != st.session_state.anam_html_table_name:
                     st.session_state.anam_html_table_name = row[column_names[5]]
-        # st.info(st.session_state.anam_html_table_name)
         
         #### feedback and source display ####
         block_feedback(blob_storage, formatted_csv, st.session_state, "anam")
