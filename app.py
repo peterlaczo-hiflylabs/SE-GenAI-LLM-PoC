@@ -47,6 +47,8 @@ openai_api = str(os.environ['openai_api_key'])
 openai.api_key = openai_api
 os.environ["OPENAI_API_KEY"] = openai_api
 
+def set_config():
+    st.set_page_config(layout="wide")
 
 def generate_embeddings(text):
     response = openai.Embedding.create(input=text, model = embedder)
@@ -73,7 +75,6 @@ def retrieve_relevant_chunks(user_input, db, model):
     return sources
 
 def table_string_generator(docs, generator, input_tokens) -> str:
-    st.info(len(input_tokens))
     if len(input_tokens) <= MODEL_INPUT_TOKEN_SUMM_LIMIT:
         print('include all documents')
         results = [doc.metadata['source'].split("\\")[-1] + "-page-" + str(doc.metadata['page'] )+ ": " + doc.page_content.replace("\n", "").replace("\r", "") for doc in docs]
@@ -131,25 +132,37 @@ def talk_to_your_docs():
     if "files" not in st.session_state:
         st.session_state.files = []
 
+    if "id_list" not in st.session_state:
+        st.session_state.id_list = []
+
     # - - - - - - - - - - - - - - - -
     # Select container and id
     # - - - - - - - - - - - - - - - -
 
     # start = time.time()
-    selected_container = st.selectbox("Válassza ki a használni kívánt állományt:", [container['name'] for container in blob_storage.list_containers()])
-    ids = sorted(set([file['name'].split('/')[0] for file in list_files_in_container(blob_storage, selected_container)]))
-    selected_id = st.selectbox("Válassza ki az azonosítót:", ids)
+    selected_container = st.selectbox("Válassza ki a használni kívánt állományt:", st.session_state.container_list)
+    if selected_container != st.session_state.container_list:
+        ids = set([file['name'].split('/')[0] for file in list_files_in_container(blob_storage, selected_container)])
+        st.session_state.id_list = sorted(ids)
+    selected_id = st.selectbox("Válassza ki az azonosítót:", st.session_state.id_list)
     # st.info(f"selected container + id deltatime:{time.time()- start:.2f} sec")
     # start = time.time()
     if selected_container != st.session_state.selected_container or selected_id != st.session_state.selected_id:
         #### clear cache ####
         is_authenticated = st.session_state.authenticated
+        selected_id_list = st.session_state.id_list
+        container_list = st.session_state.container_list
+
         st.cache_data.clear()
         for key in st.session_state.keys():
             del st.session_state[key]
+
         st.session_state.authenticated = is_authenticated
         st.session_state.selected_id = selected_id
         st.session_state.selected_container = selected_container
+        st.session_state.id_list = selected_id_list
+        st.session_state.container_list = container_list
+
         #### UPLOAD DOCS #####
         docs = []
         #first filtering, current ID filter
@@ -225,30 +238,32 @@ def talk_to_your_docs():
     if len(csv_file) == 0:
         upload_table(selected_id, selected_container, anam_gen_system_prompt, 'anam', input_tokens)
         csv_file = [file for file in st.session_state.files if file['name'].split('/')[1] == 'cache' and 'anamnezis_of' in file['name']]
-    csv_doc =pd.read_csv(io.StringIO(select_blob_file(blob_storage,selected_container,csv_file[-1])), sep=';')
-    formatted_csv = format_diagnosis_csv(csv_doc)
-    column_names = swap_elements([col for col in formatted_csv.columns],3,4)
-    cols = st.columns((1, 4, 3, 2, 4, 4))
-    for idx in range(1, len(cols)):
-        cols[idx].caption(column_names[idx-1])
-    for index, row in formatted_csv.iterrows():
-        col1, col2, col3, col4, col5, col6 = st.columns((1, 4, 3, 2, 4, 4))
-        col1.write(index + 1)
-        col2.write(row['Diagnózis'])
-        col3.write(row['Kezdete'])
-        col4.write(row['BNO-10'])
-        col5.write(row['BNO leírás'])
-        do_action = col6.button("forrás dokumentum", key=f"diagnosis_btn_{index}", type="primary")
-        if do_action:
-            if index + 1 != st.session_state.anam_row_index:
-                st.session_state.anam_row_index = index + 1
-            if row[column_names[-1]] != st.session_state.anam_html_table_name:
-                st.session_state.anam_html_table_name = row[column_names[-1]]
-    # st.info(st.session_state.anam_html_table_name)
-    
-    #### feedback and source display ####
-    block_feedback(blob_storage, selected_id, csv_file[-1], selected_container, st.session_state, "anam")
-    document_displayer(blob_storage, selected_container, st.session_state, "anam")
+    if len(csv_file) > 0:
+        csv_doc =pd.read_csv(io.StringIO(select_blob_file(blob_storage,selected_container,csv_file[-1])), sep=';')
+        formatted_csv = format_diagnosis_csv(csv_doc)
+        column_names = [col for col in formatted_csv.columns]
+        cols = st.columns((1, 4, 2, 3, 2, 4, 3))
+        for idx in range(1, len(cols)):
+            cols[idx].caption(column_names[idx-1])
+        for index, row in formatted_csv.iterrows():
+            col1, col2, col3, col4, col5, col6, col7 = st.columns((1, 4, 2, 3, 2, 4, 3))
+            col1.write(index + 1)
+            col2.write(row[column_names[0]])
+            col3.write(row[column_names[1]])
+            col4.write(row[column_names[2]])
+            col5.write(row[column_names[3]])
+            col6.write(row[column_names[4]])
+            do_action = col7.button("forrás", key=f"diagnosis_btn_{index}", type="primary")
+            if do_action:
+                if index + 1 != st.session_state.anam_row_index:
+                    st.session_state.anam_row_index = index + 1
+                if row[column_names[5]] != st.session_state.anam_html_table_name:
+                    st.session_state.anam_html_table_name = row[column_names[5]]
+        # st.info(st.session_state.anam_html_table_name)
+        
+        #### feedback and source display ####
+        block_feedback(blob_storage, formatted_csv, st.session_state, "anam")
+        document_displayer(blob_storage, selected_container, st.session_state, "anam")
 
     # st.info(f"anam table display deltatime:{time.time()- start:.2f} sec")
     # start = time.time()
@@ -257,15 +272,14 @@ def talk_to_your_docs():
     # - - - - - - - - - - - - - - - -
 
     st.subheader("Gyógyszerérzékenység szekció")
-    show_table = True
     if st.button("Tábla újragenerálása", key = "gyogyszer_table_gen_btn"):
-        show_table = upload_table(selected_id,selected_container, gyogyszer_gen_system_prompt, 'gyogyszer', input_tokens)
+        upload_table(selected_id,selected_container, gyogyszer_gen_system_prompt, 'gyogyszer', input_tokens)
 
     csv_file = [file for file in st.session_state.files if file['name'].split('/')[1] == 'cache' and 'gyogyszererzekenyseg' in file['name']]
     if len(csv_file) == 0:
-        show_table = upload_table(selected_id ,selected_container, gyogyszer_gen_system_prompt, 'gyogyszer', input_tokens)
+        upload_table(selected_id ,selected_container, gyogyszer_gen_system_prompt, 'gyogyszer', input_tokens)
         csv_file = [file for file in st.session_state.files if file['name'].split('/')[1] == 'cache' and 'gyogyszererzekenyseg' in file['name']]
-    if show_table:
+    if len(csv_file) > 0:
         csv_doc =pd.read_csv(io.StringIO(select_blob_file(blob_storage,selected_container,csv_file[-1])), sep=';')
         column_names = [col for col in csv_doc.columns]
         cols = st.columns((1, 2, 2, 2))
@@ -276,7 +290,7 @@ def talk_to_your_docs():
             col1.write(index + 1)
             col2.write(row[column_names[0]])
             col3.write(row[column_names[1]])
-            do_action = col4.button("forrás dokumentum" if str(row[column_names[2]]) != 'nan' else "", key=f"gyogyszer_btn_{index}", type="primary")
+            do_action = col4.button("forrás" if str(row[column_names[2]]) != 'nan' else "", key=f"gyogyszer_btn_{index}", type="primary")
             if do_action:
                 if index + 1 != st.session_state.gyogyszer_row_index:
                     st.session_state.gyogyszer_row_index = index + 1
@@ -286,7 +300,7 @@ def talk_to_your_docs():
                     st.session_state.gyogyszer_html_table_name = ""
 
         #### feedback and source display ####
-        block_feedback(blob_storage, selected_id, csv_file[-1], selected_container, st.session_state, "gyogyszer")
+        block_feedback(blob_storage, csv_doc, st.session_state, "gyogyszer")
         document_displayer(blob_storage,selected_container, st.session_state, "gyogyszer")
 
     # st.info(f"gyogyszer table display deltatime:{time.time()- start:.2f} sec")
@@ -380,9 +394,15 @@ def upload_file():
         df_raw = pd.read_excel(uploaded_file, engine='openpyxl', dtype={'NPI':'object', 'CASE_NO':'object'}).convert_dtypes()
         blob_storage.create_container(container_name)
         format_table(df_raw, blob_storage, container_name)
+        st.session_state.container_list = [container['name'] for container in blob_storage.list_containers()]
+
 
 
 def app_main():
+    set_config()
+    if "container_list" not in st.session_state:
+        st.session_state.container_list = [container['name'] for container in blob_storage.list_containers()]
+
     if "authenticated" not in st.session_state:
         st.session_state.authenticated = False
 

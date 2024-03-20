@@ -16,29 +16,20 @@ def insert_bno_description(gen_bno, bno_table):
         return result_row['NEV'].values[0]
     return ''
 
-#Temporarily disposed of
-# def split_listed_bnos(table: pd.DataFrame):
-#     final_table = table.copy()
-#     shift_counter = 0
-#     for idx, row in table.iterrows():
-#         bno_ids = row['BNO-10'].split('-')
-#         if len(bno_ids) > 1:
-#             for i in range(len(bno_ids)):
-#                 final_table.iloc[idx + shift_counter]['BNO-10'] = f"{bno_ids[0]} ({row['BNO-10']})"
-#                 new_row = row.copy()
-#                 new_row['BNO-10'] = f"{bno_ids[i]} ({row['BNO-10']})"
-#                 previous_part = final_table.iloc[:idx + shift_counter + 1]
-#                 later_part = final_table.iloc[idx + shift_counter +1:]
-#                 final_table = pd.concat([previous_part,new_row.to_frame(),later_part], ignore_index=True)
-#                 shift_counter += 1
-#             # row['BNO-10'] = f"{bno_ids[0]} ({row['BNO-10']})"
-#     return final_table
-
 def format_diagnosis_csv(gen_csv: pd.DataFrame):
     bno_table = pd.read_excel('BNOTORZS.xlsx')
-    # gen_csv = split_listed_bnos(gen_csv)
-    # gen_csv['Kezdete'] = gen_csv.apply(lambda x: x['Forrás(ok)'].split('_')[1] if str(x['Kezdete']) == 'nan' else x['Kezdete'],axis= 1)
     gen_csv['BNO-10']= gen_csv['BNO-10'].apply(lambda x: "" if pd.isna(x) else x)
     gen_csv['BNO leírás'] = gen_csv['BNO-10'].apply(lambda x: insert_bno_description(x,bno_table))
-    gen_csv.drop_duplicates(subset='Diagnózis',keep='first').sort_values(["Kezdete", "Diagnózis"])
+    gen_csv['Bejegyzés dátuma'] = gen_csv.apply(lambda x: x['Forrás(ok)'].split('_')[1],axis= 1)
+    gen_csv = gen_csv.reindex(columns=[gen_csv.columns[0],gen_csv.columns[1],gen_csv.columns[5],gen_csv.columns[2],gen_csv.columns[4],gen_csv.columns[3]])
+    gen_csv = gen_csv.drop_duplicates(subset='Diagnózis',keep='first').sort_values("Bejegyzés dátuma").reset_index(drop=True)
     return gen_csv
+
+def create_extended_log(gen_csv: pd.DataFrame, feedback_datas: pd.DataFrame):
+    if feedback_datas['sor'].values[0] == "-" or feedback_datas['sor'].values[0] == "":
+        extended_row = feedback_datas
+    else:
+        subject_row = pd.DataFrame(gen_csv.iloc[int(feedback_datas['sor']) - 1]).transpose()
+        extended_row = pd.concat([feedback_datas, subject_row], axis=1)
+
+    return extended_row
