@@ -1,6 +1,6 @@
 import pandas as pd
 import numpy as np
-
+from collections import Counter
 
 def insert_bno_description(gen_bno, bno_table):
     formatted_gen_bno = ""
@@ -16,13 +16,35 @@ def insert_bno_description(gen_bno, bno_table):
         return result_row['NEV'].values[0]
     return ''
 
-def format_diagnosis_csv(gen_csv: pd.DataFrame):
+def check_header(gen_csv: pd.DataFrame, doc_type):
+    match doc_type:
+        case "anam":
+            doc_header = ["Diagnózis", "Kezdete", "BNO-10", "Forrás(ok)"]
+        case "gyogyszer":
+            doc_header = ["Gyógyszerallergia", "Kezdete", "Forrás(ok)"]
+    
+    if Counter(gen_csv.columns) != Counter(doc_header):
+        new_row = gen_csv.columns
+        gen_csv = pd.concat([pd.DataFrame(new_row, index=gen_csv.columns).transpose(),gen_csv], ignore_index=True)
+        gen_csv = gen_csv.rename({gen_csv.columns[i]: doc_header[i] for i in range(len(gen_csv.columns))}, axis=1)
+    return gen_csv
+
+def format_anamnezis_csv(gen_csv: pd.DataFrame):
     bno_table = pd.read_excel('BNOTORZS.xlsx')
     gen_csv['BNO-10']= gen_csv['BNO-10'].apply(lambda x: "" if pd.isna(x) else x)
+    gen_csv = check_header(gen_csv,"anam")
     gen_csv['BNO leírás'] = gen_csv['BNO-10'].apply(lambda x: insert_bno_description(x,bno_table))
     gen_csv['Bejegyzés dátuma'] = gen_csv.apply(lambda x: x['Forrás(ok)'].split('_')[1],axis= 1)
     gen_csv = gen_csv.reindex(columns=[gen_csv.columns[0],gen_csv.columns[1],gen_csv.columns[5],gen_csv.columns[2],gen_csv.columns[4],gen_csv.columns[3]])
     gen_csv = gen_csv.drop_duplicates(subset='Diagnózis',keep='first').sort_values("Bejegyzés dátuma").reset_index(drop=True)
+    return gen_csv
+
+def format_gyogyszer_csv(gen_csv: pd.DataFrame):
+    gen_csv = check_header(gen_csv,"gyogyszer")
+    gen_csv = gen_csv.drop_duplicates(subset='Gyógyszerallergia',keep='first').sort_values("Kezdete").reset_index(drop=True)
+    gen_csv = gen_csv[(gen_csv['Gyógyszerallergia'] != "Gyógyszerallergia") & (gen_csv['Gyógyszerallergia'] != "Gyógyszerérzékenység") & (gen_csv['Gyógyszerallergia'] != "Nem ismert")]
+    gen_csv['Bejegyzés dátuma'] = gen_csv.apply(lambda x: x['Forrás(ok)'].split('_')[1] if len(x['Forrás(ok)'].split('_')) > 1 else '' ,axis= 1)
+    gen_csv = gen_csv.reindex(columns=[gen_csv.columns[0],gen_csv.columns[1],gen_csv.columns[3],gen_csv.columns[2]])
     return gen_csv
 
 def create_extended_log(gen_csv: pd.DataFrame, feedback_datas: pd.DataFrame):

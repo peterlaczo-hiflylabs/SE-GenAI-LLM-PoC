@@ -10,7 +10,7 @@ import streamlit as st
 from dotenv import load_dotenv
 from utils.blob_storage_handlers import *
 from utils.prompts import *
-from utils.CSV_formatter import format_diagnosis_csv
+from utils.CSV_formatter import format_anamnezis_csv, format_gyogyszer_csv
 from utils.streamlit_functions import *
 from utils.table_transform import format_table
 from io import StringIO
@@ -80,9 +80,9 @@ def table_string_generator(docs, generator, input_tokens) -> str:
         results = [doc.metadata['source'].split("\\")[-1] + "-page-" + str(doc.metadata['page'] )+ ": " + doc.page_content.replace("\n", "").replace("\r", "") for doc in docs]
         sources = "\n".join(results)   
     else:
-        # sources = retrieve_relevant_chunks(generator,st.session_state.db, MODEL)
-        results = [doc.metadata['source'].split("\\")[-1] + "-page-" + str(doc.metadata['page'] )+ ": " + doc.page_content.replace("\n", "").replace("\r", "") for doc in st.session_state.docs]
-        sources = "\n".join(results)  
+        sources = retrieve_relevant_chunks(generator,st.session_state.db, MODEL)
+        # results = [doc.metadata['source'].split("\\")[-1] + "-page-" + str(doc.metadata['page'] )+ ": " + doc.page_content.replace("\n", "").replace("\r", "") for doc in st.session_state.docs]
+        # sources = "\n".join(results)  
     messages =[
     {"role": "system", "content" : "You are a helpful assistant helping people answer their questions related to documents."},
     {"role": "user", "content": table_gen_system_message.format(system_prompt = generator, sources=sources)}
@@ -90,26 +90,26 @@ def table_string_generator(docs, generator, input_tokens) -> str:
     full_response = generate_response(messages, MODEL, TEMPERATURE, MAX_TOKENS)
     return full_response.replace('; ',';') if len(full_response.split(";")) > 1 else ""
 
-def upload_table(selected_id, selected_container, generator, type, input_tokens):
+def upload_table(selected_id, generator, document_type, input_tokens):
     timestamp = datetime.datetime.now().strftime( "%Y%m%d%H%M%S")
     gyogyszer_docs = []
-    if type == "gyogyszer":
+    if document_type == "gyogyszer":
         for uploaded_file in st.session_state.files:
-            txt_doc_chunks = load_txt(select_blob_file(blob_storage,selected_container,uploaded_file),filename=uploaded_file['name'].split('/')[-1])
+            txt_doc_chunks = load_txt(select_blob_file(blob_storage, st.session_state.selected_container,uploaded_file),filename=uploaded_file['name'].split('/')[-1])
             gyogyszer_docs.extend(txt_doc_chunks)
         WHOLE_DOC, gyogyszer_input_tokens = concat_docs_count_tokens(gyogyszer_docs, encoding)
         generated_text = table_string_generator(gyogyszer_docs, generator, gyogyszer_input_tokens)
     else:
         generated_text = table_string_generator(st.session_state.docs, generator, input_tokens)
     if generated_text != "":
-        match type:
+        match document_type:
             case "anam":
-                upload_to_blob_storage(blob_storage,selected_container,f"{selected_id}/cache/{selected_id}_anamnezis_of_{timestamp}.csv",generated_text)
+                upload_to_blob_storage(blob_storage, st.session_state.selected_container,f"{selected_id}/cache/{selected_id}_anamnezis_of_{timestamp}.csv",generated_text)
                 st.session_state.anam_row_index = ""
             case "gyogyszer":
-                upload_to_blob_storage(blob_storage,selected_container,f"{selected_id}/cache/{selected_id}_gyogyszererzekenyseg_{timestamp}.csv",generated_text)
+                upload_to_blob_storage(blob_storage, st.session_state.selected_container,f"{selected_id}/cache/{selected_id}_gyogyszererzekenyseg_{timestamp}.csv",generated_text)
                 st.session_state.gyogyszer_row_index = ""
-        st.session_state.files = [file for file in list_files_in_container(blob_storage, selected_container) if len(file['name'].split('/')) > 2 and selected_id in file['name'].split('/')[-1]]
+        st.session_state.files = [file for file in list_files_in_container(blob_storage, st.session_state.selected_container) if len(file['name'].split('/')) > 2 and selected_id in file['name'].split('/')[-1]]
         return True
     else:
         st.write("Nem található releváns információ")
@@ -233,14 +233,14 @@ def talk_to_your_docs():
 
     st.subheader("Anamnézis szekció")
     if st.button("Tábla újragenerálása", key = "anam_table_gen_btn"):
-        upload_table(selected_id,selected_container, anam_gen_system_prompt, 'anam', input_tokens)
+        upload_table(selected_id, anam_gen_system_prompt, 'anam', input_tokens)
     csv_file = [file for file in st.session_state.files if file['name'].split('/')[1] == 'cache' and 'anamnezis_of' in file['name']]
     if len(csv_file) == 0:
-        upload_table(selected_id, selected_container, anam_gen_system_prompt, 'anam', input_tokens)
+        upload_table(selected_id, anam_gen_system_prompt, 'anam', input_tokens)
         csv_file = [file for file in st.session_state.files if file['name'].split('/')[1] == 'cache' and 'anamnezis_of' in file['name']]
     if len(csv_file) > 0:
         csv_doc =pd.read_csv(io.StringIO(select_blob_file(blob_storage,selected_container,csv_file[-1])), sep=';')
-        formatted_csv = format_diagnosis_csv(csv_doc)
+        formatted_csv = format_anamnezis_csv(csv_doc)
         column_names = [col for col in formatted_csv.columns]
         cols = st.columns((1, 4, 2, 3, 2, 4, 3))
         for idx in range(1, len(cols)):
@@ -262,7 +262,7 @@ def talk_to_your_docs():
         
         #### feedback and source display ####
         block_feedback(blob_storage, formatted_csv, st.session_state, "anam")
-        document_displayer(blob_storage, selected_container, st.session_state, "anam")
+        document_displayer(blob_storage, st.session_state, "anam")
 
     # st.info(f"anam table display deltatime:{time.time()- start:.2f} sec")
     # start = time.time()
@@ -272,35 +272,36 @@ def talk_to_your_docs():
 
     st.subheader("Gyógyszerérzékenység szekció")
     if st.button("Tábla újragenerálása", key = "gyogyszer_table_gen_btn"):
-        upload_table(selected_id,selected_container, gyogyszer_gen_system_prompt, 'gyogyszer', input_tokens)
+        upload_table(selected_id, gyogyszer_gen_system_prompt, 'gyogyszer', input_tokens)
 
     csv_file = [file for file in st.session_state.files if file['name'].split('/')[1] == 'cache' and 'gyogyszererzekenyseg' in file['name']]
     if len(csv_file) == 0:
-        upload_table(selected_id ,selected_container, gyogyszer_gen_system_prompt, 'gyogyszer', input_tokens)
+        upload_table(selected_id, gyogyszer_gen_system_prompt, 'gyogyszer', input_tokens)
         csv_file = [file for file in st.session_state.files if file['name'].split('/')[1] == 'cache' and 'gyogyszererzekenyseg' in file['name']]
     if len(csv_file) > 0:
         csv_doc =pd.read_csv(io.StringIO(select_blob_file(blob_storage,selected_container,csv_file[-1])), sep=';')
-        column_names = [col for col in csv_doc.columns]
-        cols = st.columns((1, 2, 2, 2))
+        formatted_csv = format_gyogyszer_csv(csv_doc)
+        column_names = [col for col in formatted_csv.columns]
+        cols = st.columns((1, 2, 2, 2, 2))
         for idx in range(1, len(cols)):
             cols[idx].caption(column_names[idx-1])
-        for index, row in csv_doc.iterrows():
-            col1, col2, col3, col4 = st.columns((1, 2, 2, 2))
+        for index, row in formatted_csv.iterrows():
+            col1, col2, col3, col4, col5 = st.columns((1, 2, 2, 2, 2))
             col1.write(index + 1)
             col2.write(row[column_names[0]])
             col3.write(row[column_names[1]])
-            do_action = col4.button("forrás" if str(row[column_names[2]]) != 'nan' else "", key=f"gyogyszer_btn_{index}", type="primary")
+            col4.write(row[column_names[2]])
+
+            do_action = col5.button("forrás" if str(row[column_names[3]]) != 'nan' else "", key=f"gyogyszer_btn_{index}", type="primary")
             if do_action:
                 if index + 1 != st.session_state.gyogyszer_row_index:
                     st.session_state.gyogyszer_row_index = index + 1
-                if str(row[column_names[2]]) != 'nan' and row[column_names[2]] != st.session_state.gyogyszer_html_table_name:
-                    st.session_state.gyogyszer_html_table_name = row[column_names[1]]
-                else:
-                    st.session_state.gyogyszer_html_table_name = ""
+                if str(row[column_names[3]]) != 'nan' and row[column_names[3]] != st.session_state.gyogyszer_html_table_name:
+                    st.session_state.gyogyszer_html_table_name = row[column_names[3]]
 
         #### feedback and source display ####
-        block_feedback(blob_storage, csv_doc, st.session_state, "gyogyszer")
-        document_displayer(blob_storage,selected_container, st.session_state, "gyogyszer")
+        block_feedback(blob_storage, formatted_csv, st.session_state, "gyogyszer")
+        document_displayer(blob_storage, st.session_state, "gyogyszer")
 
     # st.info(f"gyogyszer table display deltatime:{time.time()- start:.2f} sec")
     # start = time.time()
@@ -375,7 +376,7 @@ def talk_to_your_docs():
                 st.write("A válasz generálásához az alábbi, relevánsnak ítélt dokumentumok lettek felhasználva:")
                 st.text(sources)
         
-    document_displayer(blob_storage,selected_container, st.session_state, "chat")
+    document_displayer(blob_storage, st.session_state, "chat")
     # st.info(f"chat deltatime:{time.time()- start:.2f} sec")
     # start = time.time()
 

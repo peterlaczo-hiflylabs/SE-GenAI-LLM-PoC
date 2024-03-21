@@ -43,7 +43,7 @@ gyogyszer_generator = """Sorold fel a páciens összes gyógyszerérzékenység�
 gyogyszer_gen_system_prompt = """Act as an assistant that helps people with their questions relating to a wide variety of documents. 
 Answer ONLY with the facts listed in the list of sources below. If there isn't enough information below, say you don't know. 
 Do not generate answers that don't use the sources below. 
-Sorold fel a páciens összes gyógyszerérzékenységét és gyógyszerallergiáját, CAVE bejegyzését, illetve ha valamilyen hatóanyagra érzékeny vagy allergiás. Ha nem találsz ilyet, írd azt, hogy "Nem ismert".
+Sorold fel a páciens összes gyógyszerérzékenységét és gyógyszerallergiáját, CAVE bejegyzését, illetve ha valamilyen hatóanyagra érzékeny vagy allergiás. Ha nem találsz ilyet, írd azt, hogy "Nem ismert". Ha nem találsz releváns adatot, írd, hogy nem találtál.
 Példa: "Gyógyszerallergia; 1999-01-01; [Forrás1]".
-A válaszod egy CSV formátumú (separator: ";", endline: "\n") táblázat legyen, az alábbi oszlopokkal: "Gyógyszerallergia", Kezdete”, "Forrás(ok)".
+A válaszod egy CSV formátumú (separator: ";", endline: "\n") táblázat legyen, az alábbi oszlopokkal: "Gyógyszerallergia", "Kezdete"gyogyszer_btn_, "Forrás(ok)".
 """
