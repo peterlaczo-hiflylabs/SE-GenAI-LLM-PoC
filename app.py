@@ -253,7 +253,7 @@ def talk_to_your_docs():
             col4.write(row[column_names[2]])
             col5.write(row[column_names[3]])
             col6.write(row[column_names[4]])
-            do_action = col7.button("forrás", key=f"diagnosis_btn_{index}", type="primary")
+            do_action = col7.button("forrás" if len(row[column_names[5]].split('_')) > 1 else "", key=f"diagnosis_btn_{index}", type="primary")
             if do_action:
                 if index + 1 != st.session_state.anam_row_index:
                     st.session_state.anam_row_index = index + 1
