@@ -75,7 +75,7 @@ def retrieve_relevant_chunks(user_input, db, model):
     return sources
 
 def table_string_generator(docs, generator, input_tokens) -> str:
-    if len(input_tokens) <= MODEL_INPUT_TOKEN_SUMM_LIMIT:
+    if len(input_tokens) + 3000 <= MODEL_INPUT_TOKEN_SUMM_LIMIT:
         print('include all documents')
         results = [doc.metadata['source'].split("\\")[-1] + "-page-" + str(doc.metadata['page'] )+ ": " + doc.page_content.replace("\n", "").replace("\r", "") for doc in docs]
         sources = "\n".join(results)   

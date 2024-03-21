@@ -137,7 +137,7 @@ def block_feedback(blob_storage, gen_csv, session_state, doc_type):
             check_box_answers[0] = cols[0].checkbox("Általános megjegyzés?", key=f"{doc_type}_alt")
             if check_box_answers[0] == False:
                 check_box_answers[1] = cols[1].checkbox("Helytelenül szerepel a táblában?", key=f"{doc_type}_")
-                check_box_answers[2] = cols[2].checkbox("Duplikátum", key=f"{doc_type}_dupl")
+                check_box_answers[2] = cols[2].checkbox("Duplikátum?", key=f"{doc_type}_dupl")
                 check_box_answers[3] = cols[3].checkbox("Helytelen dátum?", key=f"{doc_type}_date")
                 check_box_answers[4] = cols[4].checkbox("Rossz BNO kód?", key=f"{doc_type}_bno")
         feedback_text = st.text_area("Kérlek írd be a visszajelzésed", value="",key=f"{doc_type}_desc")
@@ -149,7 +149,7 @@ def block_feedback(blob_storage, gen_csv, session_state, doc_type):
                 'időpont': datetime.datetime.now().strftime("%H:%M:%S"),
                 'sor': "-" if check_box_answers[0] else row_num,
                 'helytelen tábla': str(check_box_answers[1]) if check_box_answers[1] != "" else '-',
-                'duplikátum': str(check_box_answers[2]) if check_box_answers[1] != "" else '-',
+                'duplikátum?': str(check_box_answers[2]) if check_box_answers[1] != "" else '-',
                 'helytelen dátum': str(check_box_answers[3]) if check_box_answers[1] != "" else '-',
                 'helytelen BNO': str(check_box_answers[4]) if check_box_answers[1] != "" else '-',
                 'leírás': feedback_text

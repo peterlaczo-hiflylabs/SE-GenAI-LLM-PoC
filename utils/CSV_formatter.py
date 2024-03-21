@@ -35,15 +35,16 @@ def format_anamnezis_csv(gen_csv: pd.DataFrame):
     gen_csv = check_header(gen_csv,"anam")
     gen_csv['BNO leírás'] = gen_csv['BNO-10'].apply(lambda x: insert_bno_description(x,bno_table))
     gen_csv['Bejegyzés dátuma'] = gen_csv.apply(lambda x: x['Forrás(ok)'].split('_')[1],axis= 1)
-    gen_csv = gen_csv.reindex(columns=[gen_csv.columns[0],gen_csv.columns[1],gen_csv.columns[5],gen_csv.columns[2],gen_csv.columns[4],gen_csv.columns[3]])
-    gen_csv = gen_csv.drop_duplicates(subset='Diagnózis',keep='first').sort_values("Bejegyzés dátuma").reset_index(drop=True)
+    gen_csv['Rendezési dátum'] = gen_csv.apply(lambda x: x['Forrás(ok)'].split('_')[1] if str(x['Kezdete']) == 'nan' else x['Kezdete'],axis= 1)
+    gen_csv = gen_csv.reindex(columns=[gen_csv.columns[0],gen_csv.columns[1],gen_csv.columns[5],gen_csv.columns[2],gen_csv.columns[4],gen_csv.columns[3],gen_csv.columns[6]])
+    gen_csv = gen_csv.drop_duplicates(subset='Diagnózis',keep='first').sort_values("Rendezési dátum").reset_index(drop=True)
     return gen_csv
 
 def format_gyogyszer_csv(gen_csv: pd.DataFrame):
     gen_csv = check_header(gen_csv,"gyogyszer")
     gen_csv = gen_csv.drop_duplicates(subset='Gyógyszerallergia',keep='first').sort_values("Kezdete").reset_index(drop=True)
-    gen_csv = gen_csv[(gen_csv['Gyógyszerallergia'] != "Gyógyszerallergia") & (gen_csv['Gyógyszerallergia'] != "Gyógyszerérzékenység") & (gen_csv['Gyógyszerallergia'] != "Nem ismert")]
-    gen_csv['Bejegyzés dátuma'] = gen_csv.apply(lambda x: x['Forrás(ok)'].split('_')[1] if len(x['Forrás(ok)'].split('_')) > 1 else '' ,axis= 1)
+    gen_csv = gen_csv[(gen_csv['Gyógyszerallergia'] != "Gyógyszerallergia") & (gen_csv['Gyógyszerallergia'] != "Gyógyszerérzékenység")]
+    gen_csv['Bejegyzés dátuma'] = gen_csv['Forrás(ok)'].apply(lambda x: x.split('_')[1] if isinstance(x, float) == False and len(x.split('_')) > 1 else '')
     gen_csv = gen_csv.reindex(columns=[gen_csv.columns[0],gen_csv.columns[1],gen_csv.columns[3],gen_csv.columns[2]])
     return gen_csv
 
