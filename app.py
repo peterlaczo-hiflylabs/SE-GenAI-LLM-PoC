@@ -77,17 +77,20 @@ def retrieve_relevant_chunks(user_input, db, model):
 def table_string_generator(docs, generator, input_tokens) -> str:
     if len(input_tokens) + 3000 <= MODEL_INPUT_TOKEN_SUMM_LIMIT:
         print('include all documents')
+        st.info("ALL DOCS USED")
         results = [doc.metadata['source'].split("\\")[-1] + "-page-" + str(doc.metadata['page'] )+ ": " + doc.page_content.replace("\n", "").replace("\r", "") for doc in docs]
         sources = "\n".join(results)   
     else:
-        sources = retrieve_relevant_chunks(generator,st.session_state.db, MODEL)
-        # results = [doc.metadata['source'].split("\\")[-1] + "-page-" + str(doc.metadata['page'] )+ ": " + doc.page_content.replace("\n", "").replace("\r", "") for doc in st.session_state.docs]
-        # sources = "\n".join(results)  
+        st.info("NOT ALL DOCS USED")
+        # sources = retrieve_relevant_chunks(generator,st.session_state.db, MODEL)
+        results = [doc.metadata['source'].split("\\")[-1] + "-page-" + str(doc.metadata['page'] )+ ": " + doc.page_content.replace("\n", "").replace("\r", "") for doc in st.session_state.docs]
+        sources = "\n".join(results)  
     messages =[
     {"role": "system", "content" : "You are a helpful assistant helping people answer their questions related to documents."},
     {"role": "user", "content": table_gen_system_message.format(system_prompt = generator, sources=sources)}
     ]
     full_response = generate_response(messages, MODEL, TEMPERATURE, MAX_TOKENS)
+    st.info(full_response)
     return full_response.replace('; ',';') if len(full_response.split(";")) > 1 else ""
 
 def upload_table(selected_id, generator, document_type, input_tokens):
@@ -107,6 +110,7 @@ def upload_table(selected_id, generator, document_type, input_tokens):
                 upload_to_blob_storage(blob_storage, st.session_state.selected_container,f"{selected_id}/cache/{selected_id}_anamnezis_of_{timestamp}.csv",generated_text)
                 st.session_state.anam_row_index = ""
             case "gyogyszer":
+                # st.info(generated_text)
                 upload_to_blob_storage(blob_storage, st.session_state.selected_container,f"{selected_id}/cache/{selected_id}_gyogyszererzekenyseg_{timestamp}.csv",generated_text)
                 st.session_state.gyogyszer_row_index = ""
         st.session_state.files = [file for file in list_files_in_container(blob_storage, st.session_state.selected_container) if len(file['name'].split('/')) > 2 and selected_id in file['name'].split('/')[-1]]
@@ -148,6 +152,7 @@ def talk_to_your_docs():
     # st.info(f"selected container + id deltatime:{time.time()- start:.2f} sec")
     # start = time.time()
     if selected_container != st.session_state.selected_container or selected_id != st.session_state.selected_id:
+        time.sleep(1.5)
         #### clear cache ####
         is_authenticated = st.session_state.authenticated
         selected_id_list = st.session_state.id_list
@@ -155,7 +160,8 @@ def talk_to_your_docs():
 
         st.cache_data.clear()
         for key in st.session_state.keys():
-            del st.session_state[key]
+            if key not in ['authenticated','password_correct']:
+                del st.session_state[key]
 
         st.session_state.authenticated = is_authenticated
         st.session_state.selected_id = selected_id
@@ -271,14 +277,15 @@ def talk_to_your_docs():
     # - - - - - - - - - - - - - - - -
 
     st.subheader("Gyógyszerérzékenység szekció")
+    gen_success = True
     if st.button("Tábla újragenerálása", key = "gyogyszer_table_gen_btn"):
-        upload_table(selected_id, gyogyszer_gen_system_prompt, 'gyogyszer', input_tokens)
+        gen_success = upload_table(selected_id, gyogyszer_gen_system_prompt, 'gyogyszer', input_tokens)
 
     csv_file = [file for file in st.session_state.files if file['name'].split('/')[1] == 'cache' and 'gyogyszererzekenyseg' in file['name']]
     if len(csv_file) == 0:
         upload_table(selected_id, gyogyszer_gen_system_prompt, 'gyogyszer', input_tokens)
         csv_file = [file for file in st.session_state.files if file['name'].split('/')[1] == 'cache' and 'gyogyszererzekenyseg' in file['name']]
-    if len(csv_file) > 0:
+    if len(csv_file) > 0 and gen_success:
         csv_doc =pd.read_csv(io.StringIO(select_blob_file(blob_storage,selected_container,csv_file[-1])), sep=';')
         formatted_csv = format_gyogyszer_csv(csv_doc)
         column_names = [col for col in formatted_csv.columns]

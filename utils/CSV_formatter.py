@@ -29,11 +29,18 @@ def check_header(gen_csv: pd.DataFrame, doc_type):
         gen_csv = gen_csv.rename({gen_csv.columns[i]: doc_header[i] for i in range(len(gen_csv.columns))}, axis=1)
     return gen_csv
 
+def format_date(x):
+    if isinstance(x,float):
+        return '{:.0f}'.format(x) if x.is_integer() else '{:.2f}'.format(x)
+    return x
+
 def format_anamnezis_csv(gen_csv: pd.DataFrame):
     bno_table = pd.read_excel('BNOTORZS.xlsx')
     gen_csv['BNO-10']= gen_csv['BNO-10'].apply(lambda x: "" if pd.isna(x) else x)
     gen_csv = check_header(gen_csv,"anam")
     gen_csv['BNO leírás'] = gen_csv['BNO-10'].apply(lambda x: insert_bno_description(x,bno_table))
+    breakpoint()
+    gen_csv['Kezdete'] = gen_csv['Kezdete'].apply(lambda x: format_date(x))
     gen_csv['Bejegyzés dátuma'] = gen_csv['Forrás(ok)'].apply(lambda x: x.split('_')[1] if isinstance(x, float) == False and len(x.split('_')) > 1 else '')
     gen_csv['Rendezési dátum'] = gen_csv.apply(lambda x: x['Bejegyzés dátuma'] if str(x['Kezdete']) == 'nan' else x['Kezdete'],axis= 1)
     gen_csv = gen_csv.reindex(columns=[gen_csv.columns[0],gen_csv.columns[1],gen_csv.columns[5],gen_csv.columns[2],gen_csv.columns[4],gen_csv.columns[3],gen_csv.columns[6]])

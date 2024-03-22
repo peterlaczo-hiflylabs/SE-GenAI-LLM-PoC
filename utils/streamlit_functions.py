@@ -78,7 +78,7 @@ def password_entered():
     """Checks whether a password entered by the user is correct."""
     if hmac.compare_digest(st.session_state["password"], os.environ["streamlit_password"]):
         st.session_state["password_correct"] = True
-        del st.session_state["password"]  # Don't store the password.
+        # del st.session_state["password"]  # Don't store the password.
     else:
         st.session_state["password_correct"] = False
 
@@ -93,6 +93,7 @@ def check_password():
     st.text_input(
         "Password", type="password", on_change=password_entered, key="password"
     )
+
     if "password_correct" in st.session_state:
         st.error("Password incorrect")
     return False
