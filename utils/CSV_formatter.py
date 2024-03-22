@@ -49,7 +49,7 @@ def format_anamnezis_csv(gen_csv: pd.DataFrame):
 def format_gyogyszer_csv(gen_csv: pd.DataFrame):
     gen_csv = check_header(gen_csv,"gyogyszer")
     gen_csv = gen_csv.drop_duplicates(subset='Gyógyszerallergia',keep='first').sort_values("Kezdete").reset_index(drop=True)
-    gen_csv = gen_csv[(gen_csv['Gyógyszerallergia'] != "Gyógyszerallergia") & (gen_csv['Gyógyszerallergia'] != "Gyógyszerérzékenység")]
+    gen_csv = gen_csv[(gen_csv['Gyógyszerallergia'] != "Gyógyszerallergia") & (gen_csv['Gyógyszerallergia'] != "Gyógyszerérzékenység") & (gen_csv['Gyógyszerallergia'] != "Cave")]
     gen_csv['Bejegyzés dátuma'] = gen_csv['Forrás(ok)'].apply(lambda x: x.split('_')[1] if isinstance(x, float) == False and len(x.split('_')) > 1 else '')
     gen_csv = gen_csv.reindex(columns=[gen_csv.columns[0],gen_csv.columns[1],gen_csv.columns[3],gen_csv.columns[2]])
     return gen_csv

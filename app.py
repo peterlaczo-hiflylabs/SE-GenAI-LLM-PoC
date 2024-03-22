@@ -88,7 +88,7 @@ def table_string_generator(docs, generator, input_tokens) -> str:
     {"role": "user", "content": table_gen_system_message.format(system_prompt = generator, sources=sources)}
     ]
     full_response = generate_response(messages, MODEL, TEMPERATURE, MAX_TOKENS)
-    return full_response.replace('; ',';') if len(full_response.split(";")) > 1 else ""
+    return full_response.replace('; ',';') if len(full_response.split(";")) > 5 else ""
 
 def upload_table(selected_id, generator, document_type, input_tokens):
     timestamp = datetime.datetime.now().strftime( "%Y%m%d%H%M%S")
@@ -256,7 +256,7 @@ def talk_to_your_docs():
             col4.write(row[column_names[2]])
             col5.write(row[column_names[3]])
             col6.write(row[column_names[4]])
-            do_action = col7.button("forrás" if len(row[column_names[5]].split('_')) > 1 else "", key=f"diagnosis_btn_{index}", type="primary")
+            do_action = col7.button("forrás" if len(row[column_names[5]].split('_')) > 1 and len(row[column_names[5]].split('_')) > 1 else "", key=f"diagnosis_btn_{index}", type="primary")
             if do_action:
                 if index + 1 != st.session_state.anam_row_index:
                     st.session_state.anam_row_index = index + 1
@@ -285,27 +285,30 @@ def talk_to_your_docs():
     if len(csv_file) > 0 and gen_success:
         csv_doc =pd.read_csv(io.StringIO(select_blob_file(blob_storage,selected_container,csv_file[-1])), sep=';')
         formatted_csv = format_gyogyszer_csv(csv_doc)
-        column_names = [col for col in formatted_csv.columns]
-        cols = st.columns((1, 2, 2, 2, 2))
-        for idx in range(1, len(cols)):
-            cols[idx].caption(column_names[idx-1])
-        for index, row in formatted_csv.iterrows():
-            col1, col2, col3, col4, col5 = st.columns((1, 2, 2, 2, 2))
-            col1.write(index + 1)
-            col2.write(row[column_names[0]])
-            col3.write(row[column_names[1]])
-            col4.write(row[column_names[2]])
+        if len(formatted_csv) > 0:
+            column_names = [col for col in formatted_csv.columns]
+            cols = st.columns((1, 2, 2, 2, 2))
+            for idx in range(1, len(cols)):
+                cols[idx].caption(column_names[idx-1])
+            for index, row in formatted_csv.iterrows():
+                col1, col2, col3, col4, col5 = st.columns((1, 2, 2, 2, 2))
+                col1.write(index + 1)
+                col2.write(row[column_names[0]])
+                col3.write(row[column_names[1]])
+                col4.write(row[column_names[2]])
 
-            do_action = col5.button("forrás" if str(row[column_names[3]]) != 'nan' else "", key=f"gyogyszer_btn_{index}", type="primary")
-            if do_action:
-                if index + 1 != st.session_state.gyogyszer_row_index:
-                    st.session_state.gyogyszer_row_index = index + 1
-                if str(row[column_names[3]]) != 'nan' and row[column_names[3]] != st.session_state.gyogyszer_html_table_name:
-                    st.session_state.gyogyszer_html_table_name = row[column_names[3]]
+                do_action = col5.button("forrás" if str(row[column_names[3]]) != 'nan' and len(row[column_names[3]].split('_')) > 1  else "", key=f"gyogyszer_btn_{index}", type="primary")
+                if do_action:
+                    if index + 1 != st.session_state.gyogyszer_row_index:
+                        st.session_state.gyogyszer_row_index = index + 1
+                    if str(row[column_names[3]]) != 'nan' and row[column_names[3]] != st.session_state.gyogyszer_html_table_name:
+                        st.session_state.gyogyszer_html_table_name = row[column_names[3]]
 
-        #### feedback and source display ####
-        block_feedback(blob_storage, formatted_csv, st.session_state, "gyogyszer")
-        document_displayer(blob_storage, st.session_state, "gyogyszer")
+            #### feedback and source display ####
+            block_feedback(blob_storage, formatted_csv, st.session_state, "gyogyszer")
+            document_displayer(blob_storage, st.session_state, "gyogyszer")
+        else:
+            st.write("Nem található releváns adat")
 
     # st.info(f"gyogyszer table display deltatime:{time.time()- start:.2f} sec")
     # start = time.time()
