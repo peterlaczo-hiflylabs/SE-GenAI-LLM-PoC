@@ -77,20 +77,17 @@ def retrieve_relevant_chunks(user_input, db, model):
 def table_string_generator(docs, generator, input_tokens) -> str:
     if len(input_tokens) + 3000 <= MODEL_INPUT_TOKEN_SUMM_LIMIT:
         print('include all documents')
-        st.info("ALL DOCS USED")
         results = [doc.metadata['source'].split("\\")[-1] + "-page-" + str(doc.metadata['page'] )+ ": " + doc.page_content.replace("\n", "").replace("\r", "") for doc in docs]
         sources = "\n".join(results)   
     else:
-        st.info("NOT ALL DOCS USED")
-        # sources = retrieve_relevant_chunks(generator,st.session_state.db, MODEL)
-        results = [doc.metadata['source'].split("\\")[-1] + "-page-" + str(doc.metadata['page'] )+ ": " + doc.page_content.replace("\n", "").replace("\r", "") for doc in st.session_state.docs]
-        sources = "\n".join(results)  
+        sources = retrieve_relevant_chunks(generator,st.session_state.db, MODEL)
+        # results = [doc.metadata['source'].split("\\")[-1] + "-page-" + str(doc.metadata['page'] )+ ": " + doc.page_content.replace("\n", "").replace("\r", "") for doc in st.session_state.docs]
+        # sources = "\n".join(results)  
     messages =[
     {"role": "system", "content" : "You are a helpful assistant helping people answer their questions related to documents."},
     {"role": "user", "content": table_gen_system_message.format(system_prompt = generator, sources=sources)}
     ]
     full_response = generate_response(messages, MODEL, TEMPERATURE, MAX_TOKENS)
-    st.info(full_response)
     return full_response.replace('; ',';') if len(full_response.split(";")) > 1 else ""
 
 def upload_table(selected_id, generator, document_type, input_tokens):
