@@ -39,7 +39,6 @@ def format_anamnezis_csv(gen_csv: pd.DataFrame):
     gen_csv['BNO-10']= gen_csv['BNO-10'].apply(lambda x: "" if pd.isna(x) else x)
     gen_csv = check_header(gen_csv,"anam")
     gen_csv['BNO leírás'] = gen_csv['BNO-10'].apply(lambda x: insert_bno_description(x,bno_table))
-    breakpoint()
     gen_csv['Kezdete'] = gen_csv['Kezdete'].apply(lambda x: format_date(x))
     gen_csv['Bejegyzés dátuma'] = gen_csv['Forrás(ok)'].apply(lambda x: x.split('_')[1] if isinstance(x, float) == False and len(x.split('_')) > 1 else '')
     gen_csv['Rendezési dátum'] = gen_csv.apply(lambda x: x['Bejegyzés dátuma'] if str(x['Kezdete']) == 'nan' else x['Kezdete'],axis= 1)
