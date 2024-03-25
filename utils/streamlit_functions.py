@@ -43,7 +43,7 @@ def format_button_style():
         """
         <style>
             section[data-testid="stSidebar"] {
-                width: 200px !important; # Set the width to your desired value
+                width: 200px !important;
             }
         </style>
         """,
