@@ -403,8 +403,6 @@ def upload_file():
         format_table(df_raw, blob_storage, container_name)
         st.session_state.container_list = [container['name'] for container in blob_storage.list_containers()]
 
-
-
 def app_main():
     set_config()
     if "container_list" not in st.session_state:
