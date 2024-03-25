@@ -338,7 +338,7 @@ def talk_to_your_docs():
 
             if len(input_tokens) <= MODEL_INPUT_TOKEN_SUMM_LIMIT:
                 print('include all documents')
-                results = [doc.metadata['source'].split("\\")[-1] + "-page-" + str(doc.metadata['page'] )+ ": " + doc.page_content.replace("\n", "").replace("\r", "") for doc in docs]
+                results = [doc.metadata['source'].split("\\")[-1] + "-page-" + str(doc.metadata['page'] )+ ": " + doc.page_content.replace("\n", "").replace("\r", "") for doc in st.session_state.docs]
                 sources = "\n".join(results)   
             else:
                 sources = retrieve_relevant_chunks(QUERY, st.session_state.db, MODEL)
