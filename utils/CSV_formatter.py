@@ -42,7 +42,7 @@ def format_anamnezis_csv(gen_csv: pd.DataFrame):
     gen_csv['Kezdete'] = gen_csv['Kezdete'].apply(lambda x: format_date(x))
     gen_csv['Bejegyzés dátuma'] = gen_csv['Forrás(ok)'].apply(lambda x: x.split('_')[1] if isinstance(x, float) == False and len(x.split('_')) > 1 else '')
     gen_csv['Rendezési dátum'] = gen_csv.apply(lambda x: x['Bejegyzés dátuma'] if str(x['Kezdete']) == 'nan' else x['Kezdete'],axis= 1)
-    gen_csv['Diagnózis'] = gen_csv.groupby(['Kezdete','BNO-10', 'Forrás(ok)'])['Diagnózis'].transform(lambda x: ', '.join(x))
+    gen_csv['Diagnózis'] = gen_csv.groupby(['Kezdete','BNO-10'])['Diagnózis'].transform(lambda x: ', '.join(x))
     gen_csv = gen_csv.reindex(columns=[gen_csv.columns[0],gen_csv.columns[1],gen_csv.columns[5],gen_csv.columns[2],gen_csv.columns[4],gen_csv.columns[3],gen_csv.columns[6]])
     gen_csv = gen_csv.drop_duplicates(subset='Diagnózis',keep='first').sort_values("Rendezési dátum").reset_index(drop=True)
     return gen_csv
