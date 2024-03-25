@@ -19,8 +19,7 @@ from utilities import (
     extract_text_between_brackets,
     load_txt,
     create_db,
-    concat_docs_count_tokens,
-    swap_elements
+    concat_docs_count_tokens
 )
 
 load_dotenv()
@@ -81,8 +80,6 @@ def table_string_generator(docs, generator, input_tokens) -> str:
         sources = "\n".join(results)   
     else:
         sources = retrieve_relevant_chunks(generator,st.session_state.db, MODEL)
-        # results = [doc.metadata['source'].split("\\")[-1] + "-page-" + str(doc.metadata['page'] )+ ": " + doc.page_content.replace("\n", "").replace("\r", "") for doc in st.session_state.docs]
-        # sources = "\n".join(results)  
     messages =[
     {"role": "system", "content" : "You are a helpful assistant helping people answer their questions related to documents."},
     {"role": "user", "content": table_gen_system_message.format(system_prompt = generator, sources=sources)}
@@ -140,14 +137,11 @@ def talk_to_your_docs():
     # Select container and id
     # - - - - - - - - - - - - - - - -
 
-    # start = time.time()
     selected_container = st.selectbox("Válassza ki a használni kívánt állományt:", st.session_state.container_list)
     if selected_container != st.session_state.selected_container:
         ids = set([file['name'].split('/')[0] for file in list_files_in_container(blob_storage, selected_container)])
         st.session_state.id_list = sorted(ids)
     selected_id = st.selectbox("Válassza ki az azonosítót:", st.session_state.id_list)
-    # st.info(f"selected container + id deltatime:{time.time()- start:.2f} sec")
-    # start = time.time()
     if selected_container != st.session_state.selected_container or selected_id != st.session_state.selected_id:
         time.sleep(1.5)
         #### clear cache ####
@@ -182,9 +176,6 @@ def talk_to_your_docs():
             embeddings, st.session_state.db = create_db(docs)
         st.session_state.docs = docs
         st.session_state.files = [file for file in list_files_in_container(blob_storage, selected_container) if len(file['name'].split('/')) > 2 and selected_id in file['name'].split('/')[-1]]
-
-    # st.info(f"generating database deltatime:{time.time()- start:.2f} sec")
-    # start = time.time()
 
     # - - - - - - - - - - - - - - - -
     # Define Session state elements
@@ -227,9 +218,6 @@ def talk_to_your_docs():
     WHOLE_DOC, input_tokens = concat_docs_count_tokens(st.session_state.docs, encoding)
     st.write('A paciens dokumentumainak tokenszáma: ' + str(len(input_tokens)))
 
-    # st.info(f"state initializing deltatime:{time.time()- start:.2f} sec")
-    # start = time.time()
-    
     # - - - - - - - - - - - - - - - -
     # initializing anamnezis table
     # - - - - - - - - - - - - - - - -
@@ -267,8 +255,6 @@ def talk_to_your_docs():
         block_feedback(blob_storage, formatted_csv, st.session_state, "anam")
         document_displayer(blob_storage, st.session_state, "anam")
 
-    # st.info(f"anam table display deltatime:{time.time()- start:.2f} sec")
-    # start = time.time()
     # - - - - - - - - - - - - - - - -
     # Initializing gyogyszererzekenyseg table
     # - - - - - - - - - - - - - - - -
@@ -309,9 +295,6 @@ def talk_to_your_docs():
             document_displayer(blob_storage, st.session_state, "gyogyszer")
         else:
             st.write("Nem található releváns adat")
-
-    # st.info(f"gyogyszer table display deltatime:{time.time()- start:.2f} sec")
-    # start = time.time()
 
     # - - - - - - - - - - - - - - -
     # Chat main part
@@ -374,7 +357,6 @@ def talk_to_your_docs():
         sources_expander = st.expander(label='Forrás')
         with sources_expander:
             if len(input_tokens) <= MODEL_INPUT_TOKEN_SUMM_LIMIT:
-                #st.write('A válasz generálásához az összes feltöltött dokumentum felhasználásra került.')
                 for element_id in range(len(source_links)):
                     if st.button(source_links[element_id],key=f"expander_btn_{element_id}", type="primary"):
                         if source_links[element_id].split('-p')[0] != st.session_state.chat_html_table_name:
@@ -384,8 +366,6 @@ def talk_to_your_docs():
                 st.text(sources)
         
     document_displayer(blob_storage, st.session_state, "chat")
-    # st.info(f"chat deltatime:{time.time()- start:.2f} sec")
-    # start = time.time()
 
 def upload_file():
     container_name = st.text_input("Írja be az állomány nevét",key="input_container_name")

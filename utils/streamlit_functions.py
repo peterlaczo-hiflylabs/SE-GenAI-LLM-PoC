@@ -105,9 +105,7 @@ def csv_upload_from_dataframe(blob_storage, storage: pd.DataFrame, session_state
     success, error = upload_to_blob_storage(blob_storage, session_state.selected_container,f"{session_state.selected_id}/cache/{session_state.selected_id}_{timestamp}_{doc_type}_feedbacks.csv",csv_string)
     if success and "extended" not in doc_type:
         st.write("FILE UPLOADED")
-    # else:
-    #     st.write(error)
-
+        
 def search_for_log(blob_storage, session_state, doc_type, timestamp):
     feedback_storage_source = [file for file in session_state.files if file['name'].split('/')[1] == 'cache' and f"{doc_type}_feedbacks" in file['name'] and timestamp in file['name']]
     if len(feedback_storage_source) > 0:
@@ -123,11 +121,11 @@ def block_feedback(blob_storage, gen_csv, session_state, doc_type):
         case "gyogyszer":
             row_num = session_state.gyogyszer_row_index
 
-    refreshed = False
+    not_refreshed = True
     if st.checkbox("Visszajelzés adása", key=f"{doc_type}_curr", value=False):
         session_state.files = [file for file in list_files_in_container(blob_storage, session_state.selected_container) if len(file['name'].split('/')) > 2 and session_state.selected_id in file['name'].split('/')[-1]]
         timestamp = [file for file in st.session_state.files if file['name'].split('/')[1] == 'cache' and 'anamnezis_of' in file['name']][-1]['name'].split('/')[-1].split('_')[-1].split('.')[0]
-        refreshed = True
+        not_refreshed = False
 
         feedback_storage = search_for_log(blob_storage,session_state, doc_type, timestamp)
         extended_feedback_storage = search_for_log(blob_storage,session_state,f"{doc_type}_extended",timestamp)
@@ -162,7 +160,7 @@ def block_feedback(blob_storage, gen_csv, session_state, doc_type):
             csv_upload_from_dataframe(blob_storage, extended_feedback_storage, session_state, timestamp, f"{doc_type}_extended")
 
     if st.checkbox("Korábbi visszajelzések megjelenítése",key=f"{doc_type}_prev", value=False):
-        if not refreshed:
+        if  not_refreshed:
             session_state.files = [file for file in list_files_in_container(blob_storage, session_state.selected_container) if len(file['name'].split('/')) > 2 and session_state.selected_id in file['name'].split('/')[-1]]
             timestamp = [file for file in st.session_state.files if file['name'].split('/')[1] == 'cache' and 'anamnezis_of' in file['name']][-1]['name'].split('/')[-1].split('_')[-1].split('.')[0]
         
