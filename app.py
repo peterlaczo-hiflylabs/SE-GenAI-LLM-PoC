@@ -225,7 +225,7 @@ def talk_to_your_docs():
     st.subheader("Anamnézis szekció")
     csv_file = [file for file in st.session_state.files if file['name'].split('/')[1] == 'cache' and 'anamnezis_of' in file['name']]
     if len(csv_file) == 0:
-        if st.button("Tábla újragenerálása", key = "anam_table_gen_btn"):
+        if st.button("Tábla generálása", key = "anam_table_gen_btn"):
             upload_table(selected_id, anam_gen_system_prompt, 'anam', input_tokens)
             csv_file = [file for file in st.session_state.files if file['name'].split('/')[1] == 'cache' and 'anamnezis_of' in file['name']]
     if len(csv_file) > 0:
@@ -263,7 +263,7 @@ def talk_to_your_docs():
 
     csv_file = [file for file in st.session_state.files if file['name'].split('/')[1] == 'cache' and 'gyogyszererzekenyseg' in file['name']]
     if len(csv_file) == 0:
-        if st.button("Tábla újragenerálása", key = "gyogyszer_table_gen_btn"):
+        if st.button("Tábla generálása", key = "gyogyszer_table_gen_btn"):
             gen_success = upload_table(selected_id, gyogyszer_gen_system_prompt, 'gyogyszer', input_tokens)
             csv_file = [file for file in st.session_state.files if file['name'].split('/')[1] == 'cache' and 'gyogyszererzekenyseg' in file['name']]
     if len(csv_file) > 0 and gen_success:
