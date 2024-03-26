@@ -223,12 +223,11 @@ def talk_to_your_docs():
     # - - - - - - - - - - - - - - - -
 
     st.subheader("Anamnézis szekció")
-    if st.button("Tábla újragenerálása", key = "anam_table_gen_btn"):
-        upload_table(selected_id, anam_gen_system_prompt, 'anam', input_tokens)
     csv_file = [file for file in st.session_state.files if file['name'].split('/')[1] == 'cache' and 'anamnezis_of' in file['name']]
     if len(csv_file) == 0:
-        upload_table(selected_id, anam_gen_system_prompt, 'anam', input_tokens)
-        csv_file = [file for file in st.session_state.files if file['name'].split('/')[1] == 'cache' and 'anamnezis_of' in file['name']]
+        if st.button("Tábla újragenerálása", key = "anam_table_gen_btn"):
+            upload_table(selected_id, anam_gen_system_prompt, 'anam', input_tokens)
+            csv_file = [file for file in st.session_state.files if file['name'].split('/')[1] == 'cache' and 'anamnezis_of' in file['name']]
     if len(csv_file) > 0:
         csv_doc =pd.read_csv(io.StringIO(select_blob_file(blob_storage,selected_container,csv_file[-1])), sep=';')
         formatted_csv = format_anamnezis_csv(csv_doc)
@@ -261,13 +260,12 @@ def talk_to_your_docs():
 
     st.subheader("Gyógyszerérzékenység szekció")
     gen_success = True
-    if st.button("Tábla újragenerálása", key = "gyogyszer_table_gen_btn"):
-        gen_success = upload_table(selected_id, gyogyszer_gen_system_prompt, 'gyogyszer', input_tokens)
 
     csv_file = [file for file in st.session_state.files if file['name'].split('/')[1] == 'cache' and 'gyogyszererzekenyseg' in file['name']]
     if len(csv_file) == 0:
-        upload_table(selected_id, gyogyszer_gen_system_prompt, 'gyogyszer', input_tokens)
-        csv_file = [file for file in st.session_state.files if file['name'].split('/')[1] == 'cache' and 'gyogyszererzekenyseg' in file['name']]
+        if st.button("Tábla újragenerálása", key = "gyogyszer_table_gen_btn"):
+            gen_success = upload_table(selected_id, gyogyszer_gen_system_prompt, 'gyogyszer', input_tokens)
+            csv_file = [file for file in st.session_state.files if file['name'].split('/')[1] == 'cache' and 'gyogyszererzekenyseg' in file['name']]
     if len(csv_file) > 0 and gen_success:
         csv_doc =pd.read_csv(io.StringIO(select_blob_file(blob_storage,selected_container,csv_file[-1])), sep=';')
         formatted_csv = format_gyogyszer_csv(csv_doc)
