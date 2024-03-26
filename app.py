@@ -110,7 +110,6 @@ def upload_table(selected_id, generator, document_type, input_tokens):
         st.session_state.files = [file for file in list_files_in_container(blob_storage, st.session_state.selected_container) if len(file['name'].split('/')) > 2 and selected_id in file['name'].split('/')[-1]]
         return True
     else:
-        st.write("Nem található releváns információ")
         return False
 
 
@@ -291,8 +290,8 @@ def talk_to_your_docs():
             #### feedback and source display ####
             block_feedback(blob_storage, formatted_csv, st.session_state, "gyogyszer")
             document_displayer(blob_storage, st.session_state, "gyogyszer")
-        else:
-            st.write("Nem található releváns adat")
+    else:
+        st.write("Nem található releváns adat")
 
     # - - - - - - - - - - - - - - -
     # Chat main part
